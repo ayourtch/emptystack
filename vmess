@@ -6,7 +6,7 @@
 VNCDEFPORT=5900
 
 USER=`whoami`
-VMDIR="/home/ayourtch/vms"
+VMDIR="/home/${USER}/vms"
 
 VMNAME=$1
 
