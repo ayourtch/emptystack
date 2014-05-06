@@ -41,6 +41,10 @@ REALPATH=`which realpath`
 if [ "$REALPATH" = "" ]; then
   sudo apt-get install realpath
 fi
+SOCAT=`which socat`
+if [ "$SOCAT" = "" ]; then
+  sudo apt-get install socat
+fi
 
 
 
