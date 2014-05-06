@@ -1,0 +1,340 @@
+#!/bin/sh
+#
+# VM EmptyStack Superuser (VMESS)
+# 
+
+VNCDEFPORT=5900
+
+USER=`whoami`
+VMDIR="/home/ayourtch/vms"
+
+VMNAME=$1
+
+if [ "$VMNAME" = "" ]; then
+  echo "List of KVMs (with PIDs as in ps-ef):"
+  ps -ef | grep kvm | grep 127.0.0.1: | grep -v grep | sed 's/kvm .\+127.0.0.1:/-vnc :/g' | sed "s#$VMDIR/##g" | grep -v sed 
+  exit
+fi
+
+shift
+
+VMINST=`echo $VMNAME | sed -e 's/\([0-9]\)$/.\1/g' | cut -d . -f 2`
+if [ "$VMINST" = "$VMNAME" ]; then
+  VMINST=0
+else
+  VMNAME=`echo $VMNAME | sed -e 's/\([0-9]\)$/.\1/g' | cut -d . -f 1`
+fi
+VMFULLNAME=${VMNAME}${VMINST}
+VMDIRNAME="${VMDIR}/${VMFULLNAME}"
+if [ ! -d ${VMDIRNAME} ]; then
+  echo You need to create directory ${VMDIRNAME} if are serious about that VM - use vmess make
+  if [ "$1" = "make" ] ; then
+    echo Oh, I see you are serious. Okay, I will proceed.
+  else
+    exit
+  fi
+fi
+
+VMNUMINTF=`ifconfig -a | grep HWaddr | grep "^${VMNAME}${VMINST}e[0-9]" | wc -l`
+
+REALPATH=`which realpath`
+if [ "$REALPATH" = "" ]; then
+  sudo apt-get install realpath
+fi
+
+
+
+isbridge () {
+  RET=`brctl show | grep -v '^\s' | tail -n +2 | awk '{ print $1; }' | grep $1`
+}
+
+isexist () {
+  RET=`ifconfig -a | grep -v '^\s' | awk '{ print $1; }' | grep $1`
+}
+
+prepareintf () {
+  USER=`whoami`
+  INTF=$1
+  case "${INTF}" in
+    eth[0-9].*)
+      echo [${INTF}]: Ethernet sub-interface
+      INTF_MAIN=`echo ${INTF} | cut -d .  -f 1`
+      INTF_SUB=`echo ${INTF} | cut -d .  -f 2`
+      sudo vconfig add ${INTF_MAIN} ${INTF_SUB}
+    ;;
+    eth[0-9])
+      echo [${INTF}]: Ethernet interface
+    ;;
+    vlan*)
+      echo [${INTF}]: Ethernet VLAN bridge
+    ;;
+    *)
+      echo preparing a TAP interface ${INTF}
+      sudo tunctl -u ${USER} -t ${INTF}
+    ;;
+  esac
+
+  sudo ifconfig ${INTF} up promisc
+}
+
+
+cleanintf () {
+  USER=`whoami`
+  INTF=$1
+  isexist ${INTF}
+  if [ -z "$RET" ]; then
+    echo Interface ${INTF} does not exist
+  else
+    sudo ifconfig ${INTF} down
+    isbridge ${INTF}
+    # echo IsBridge? $RET
+    if [ -z "$RET" ]; then
+      case "${INTF}" in
+        eth[0-9].*)
+          echo [${INTF}]: Ethernet subinterface
+          sudo vconfig rem ${INTF}
+        ;;
+        eth*)
+          echo Ethernet!
+        ;;
+        vlan*)
+          echo VLAN Ethernet!
+        ;;
+        *)
+          echo Assuming Tunnel
+          sudo tunctl -d ${INTF}
+        ;;
+      esac
+    else
+      echo It is a bridge, need to delete
+      sudo brctl delbr ${INTF}
+    fi
+  fi
+
+
+}
+
+
+mkvlan () {
+  BRNAME=$1
+  echo Making a VLAN: ${BRNAME}
+  shift
+  sudo brctl addbr ${BRNAME}
+  sudo ifconfig ${BRNAME} up promisc
+  for i in "$@"; do
+    prepareintf $i
+    sudo brctl addif ${BRNAME} $i
+  done
+}
+
+
+
+CMD=""
+PARSEARGS=1
+
+while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
+  ARG=$1
+  shift
+  case "$ARG" in
+    make)
+      OP="make"
+      mkdir ${VMDIRNAME}
+      exit
+    ;;
+    ifadd)
+      if [ "$1" = "" ]; then
+        echo Missing argument
+        exit
+      fi
+      VMNUMINTF=$1
+      shift
+      OP="intf-add"
+      PARSEARGS=""
+    ;;
+    ifdel)
+      OP="intf-del"
+    ;;
+    vnc)
+      OP="vnc"
+    ;;
+    info)
+      OP="info"
+    ;;
+    smp)
+      if [ "$1" = "" ]; then
+        echo Missing argument
+        exit
+      fi
+      OP="smp"
+      SMPCOUNT=$1
+      shift
+      echo $SMPCOUNT >${VMDIRNAME}/SMP
+    ;;
+    ram)
+      if [ "$1" = "" ]; then
+        echo Missing argument
+        exit
+      fi
+      OP="ram"
+      RAMSIZE=$1
+      shift
+      echo $RAMSIZE >${VMDIRNAME}/RAM
+    ;;
+    hda)
+      OP="hda"
+      if [ "$1" = "" ]; then
+        echo Missing argument
+        exit
+      fi
+      HDASIZE=$1
+      shift
+      dd if=/dev/zero of=${VMDIRNAME}/${VMFULLNAME}-hda.img bs=1 count=1 seek=${HDASIZE}
+    ;;
+    cdrom)
+      OP="cdrom"
+      if [ "$1" = "" ]; then
+        echo Missing argument
+        exit
+      fi
+      ISOPATH=`realpath $1`
+      shift
+      ln -s ${ISOPATH} ${VMDIRNAME}/${VMFULLNAME}-cdrom.iso
+    ;;
+    bridge)
+      OP="bridge"
+      if [ "$1" = "" ]; then
+        echo Missing argument
+        exit
+      fi
+      BRIDGEIFNUM=$1
+      shift
+      if [ "$1" = "" ]; then
+        echo Need the name of the bridge
+        exit
+      else
+        BRIDGEVLAN=$1
+        shift 
+      fi
+    ;;
+   
+    start)
+      OP="start"
+    ;;
+    stop)
+      OP="stop"
+    ;;
+    *)
+      echo Usage
+    ;;
+  esac
+
+done
+
+getmac () {
+  HASH=`echo "$VMNAME" | md5sum | cut -c 1-6 | sed -e 's/\(..\)/\1:/g'`
+  RET=`printf "02:%s%02x:%02x" $HASH $VMINST $1`
+}
+
+getvncdisplay () {
+  HEX=`echo "$VMNAME" | md5sum | cut -c 1-3` 
+  DEC=`printf "%d" 0x${HEX}` 
+  VNCDISPLAY=$((1+${VMINST} + (${DEC} * 10) ))
+  VNCPORT=$((5900 + ${VNCDISPLAY}))
+}
+
+
+
+PRECMD=""
+
+INTFSEQ=$((${VMNUMINTF} - 1 ))
+for i in `seq 0 ${INTFSEQ}`
+do
+  getmac $i
+  IFNAME="${VMNAME}${VMINST}e$i"
+  if [ "${OP}" = "intf-add" ]; then
+    sudo tunctl -u ${USER} -t ${IFNAME}
+    sudo ifconfig ${IFNAME} up promisc
+    if [ ! "$1" = "" ]; then
+      mkvlan $1 ${IFNAME}
+      shift
+    fi
+  fi
+  if [ "${OP}" = "intf-del" ]; then
+    sudo tunctl -d ${IFNAME}
+  fi
+  if [ "${OP}" = "bridge" ]; then
+    if [ "$i" = "$BRIDGEIFNUM" ]; then
+      echo mkvlan ${BRIDGEVLAN} ${IFNAME}
+      mkvlan ${BRIDGEVLAN} ${IFNAME}
+    fi
+  fi
+  IFCFG=" -net tap,vlan=$i,ifname=${IFNAME},script=/bin/true -net nic,vlan=$i,macaddr=${RET}"
+  CMD="${CMD}${IFCFG}"
+done
+
+CMD="kvm ${CMD}"
+
+getvncdisplay
+CMD="${CMD} -vnc 127.0.0.1:${VNCDISPLAY}"
+PIDCMD="vnc 127.0.0.1:${VNCDISPLAY}"
+
+if [ "${OP}" = "vnc" ]; then
+  echo Please VNC to ${VNCDEFPORT} to connect to this VM console
+  socat TCP-LISTEN:${VNCDEFPORT},reuseaddr TCP:localhost:$VNCPORT &
+fi
+
+if [ -e ${VMDIRNAME}/${VMFULLNAME}-hda.img ]; then
+  CMD="$CMD -hda ${VMDIRNAME}/${VMFULLNAME}-hda.img"
+fi
+
+if [ -e ${VMDIRNAME}/${VMFULLNAME}-cdrom.iso ]; then
+  CMD="$CMD -cdrom ${VMDIRNAME}/${VMFULLNAME}-cdrom.iso"
+fi
+
+if [ -e ${VMDIRNAME}/RAM ]; then
+  RAM=`cat ${VMDIRNAME}/RAM`
+  CMD="$CMD -m $RAM"
+fi
+
+if [ -e ${VMDIRNAME}/SMP ]; then
+  SMP=`cat ${VMDIRNAME}/SMP`
+  CMD="$CMD -smp $SMP"
+fi
+
+CMD="${CMD} -daemonize"
+
+# echo $CMD
+# echo $PIDCMD
+RUNPID=`ps -ef | grep "${PIDCMD}" | grep -v grep | awk '{ print $2 }'`
+
+if [ "$OP" = "" ]; then
+  OP="status"
+fi
+
+if [ "$OP" = "info" ]; then
+  echo Total number of interfaces: $VMNUMINTF
+  echo "Command for this VM"
+  echo "  $CMD"
+  OP="status"
+fi
+
+if [ "$OP" = "status" ]; then
+  if [ "$RUNPID" = "" ]; then
+    echo VM not running
+  else
+    echo VM is running, PID: $RUNPID
+  fi
+fi
+
+if [ "$OP" = "start" ]; then
+  echo Starting VM: "$CMD"
+  sh -c "$CMD"
+fi
+if [ "$OP" = "stop" ]; then
+  if [ ! "$RUNPID" = "" ]; then
+    echo Stopping VM PID $RUNPID
+    kill ${RUNPID}
+  fi
+fi
+
+
