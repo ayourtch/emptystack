@@ -18,6 +18,11 @@ if [ "$VMNAME" = "" ]; then
   exit
 fi
 
+if [ "$VMNAME" = "top" ]; then
+  top -c -p $(pgrep -d',' -f "kvm ")
+  exit
+fi
+
 shift
 
 VMINST=`echo $VMNAME | sed -e 's/\([0-9]\)$/.\1/g' | cut -d . -f 2`
