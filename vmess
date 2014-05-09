@@ -11,8 +11,10 @@ VMDIR="/home/${USER}/vms"
 VMNAME=$1
 
 if [ "$VMNAME" = "" ]; then
-  echo "List of KVMs (with PIDs as in ps-ef):"
+  echo "List of running VMs:"
   ps -ef | grep kvm | grep 127.0.0.1: | grep -v grep | sed 's/kvm .\+127.0.0.1:/-vnc :/g' | sed "s#$VMDIR/##g" | grep -v sed 
+  echo "Full list of VMs:"
+  ls -ald ${VMDIR}/*[0-9] | sed "s#${VMDIR}/##g"
   exit
 fi
 
@@ -194,6 +196,16 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
       shift
       dd if=/dev/zero of=${VMDIRNAME}/${VMFULLNAME}-hda.img bs=1 count=1 seek=${HDASIZE}
     ;;
+    hdb)
+      OP="hdb"
+      if [ "$1" = "" ]; then
+        echo Missing argument
+        exit
+      fi
+      HDBSIZE=$1
+      shift
+      dd if=/dev/zero of=${VMDIRNAME}/${VMFULLNAME}-hdb.img bs=1 count=1 seek=${HDBSIZE}
+    ;;
     cdrom)
       OP="cdrom"
       if [ "$1" = "" ]; then
@@ -289,6 +301,10 @@ fi
 
 if [ -e ${VMDIRNAME}/${VMFULLNAME}-hda.img ]; then
   CMD="$CMD -hda ${VMDIRNAME}/${VMFULLNAME}-hda.img"
+fi
+
+if [ -e ${VMDIRNAME}/${VMFULLNAME}-hdb.img ]; then
+  CMD="$CMD -hdb ${VMDIRNAME}/${VMFULLNAME}-hdb.img"
 fi
 
 if [ -e ${VMDIRNAME}/${VMFULLNAME}-cdrom.iso ]; then
