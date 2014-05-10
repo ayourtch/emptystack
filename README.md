@@ -14,6 +14,82 @@ It is a completely unscalable way to manage VMs. Don't use it in production. It'
 
 Anyway, enough whining, let's see what's the big deal about.
 
+
+This is the overview of the functions, given by "vmess help":
+
+```
+vmess: VM Empty Stack Supervisor: A wrapper around bare-bones KVM virtual machines using linux bridged networking.
+
+Usage:
+
+vmess top
+      Run a "top" command, filtering just the KVM instances
+
+vmess net 
+      Various operations on the bridge, as a whole
+
+vmess <vmname> ...
+      Various operations on VMs. VM should be in a form [a-z]+[0-9]
+
+vmess <vmname> make
+      create a directory for the VM
+
+vmess <vmname> smp <N>
+      Set the "-smp" parameter of KVM to <N> and store it inside the VM's dir.
+
+vmess <vmname> ram <size>
+      Set the size of RAM for the VM and store it inside the VM's dir.
+
+
+vmess <vmname> hda <size>
+vmess <vmname> hdb <size>
+      Create a sparse file for the first and second disk.
+      Note that because the file is created with a "seek" option of dd, 
+      the subsequent invocations of the command do not delete the file,
+      they only overwrite the very last byte to be zero.
+
+vmess <vmname> cdrom <path-to-iso>
+      Create a symlink to the cdrom to be used by the VM.
+
+vmess <vmname> ifadd <N> [ <bridge> <bridge> ... ]
+      Add N virtual NICs to the VM, and optionally place them into
+      bridged segments. Create the segments if necessary. 
+      You can use "-" as a denomination of a bridge to indicate
+      you do now want this interface to be connected anywhere.
+      NB: If the VM has the existing network cards, they are removed first.
+
+vmess <vmname> ifdel
+      Delete all of the VM's NICs. Called by ifadd, if there are existing NICs.
+
+vmess <vmname> connect <ifnum> <bridge>
+      Connect Nth interface (<ifnum>, starts from 0) to a specified <bridge>,
+      disconnecting it from the current bridge if necessary. Somewhat redundant
+      with "ifadd", but can be useful for manipulating the interfaces one by one.
+
+vmess <vmname> ifstat
+      Display the VM NICs' current connections in the syntax of a "ifadd" 
+      command above.
+
+vmess <vmname> start
+      Start the VM in the background.
+
+vmess <vmname> stop
+      Stop (kill) the VM.
+
+vmess <vmname> status
+      Show the status of the VM - whether it is running or not.
+
+vmess <vmname> info
+      Show the various information about the VM, including the current full command
+      line used to launch KVM.
+
+vmess <vmname> vnc
+      Start a socat instance relaying the main machine's display to the VM's vnc console.
+      This socat instance serves a single connection attempt from the operator.
+
+```
+
+
 Let's toy with a vm:
 
 ```
