@@ -8,6 +8,8 @@ No, I need something more stupid.
 
 Docker ? this looks a bit simpler, but still a bit too much of work.
 
+Vagrant ? this seems relatively close. But unless I misunderstood, it wants VirtualBox, while I wanted kvm. Yes, there is a plugin to it, but this again starts to get complicated...
+
 Thus, vmess was born.
 
 It is a completely unscalable way to manage VMs. Don't use it in production. It's just an experiment. It's not finished.
