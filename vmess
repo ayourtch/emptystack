@@ -41,8 +41,8 @@ isexist () {
 }
 
 disable_ipv6 () {
-  INTF=`echo $1 | sed -e 'sX\.X/Xg'`
-  sudo sysctl -w net.ipv6.conf.${INTF}.disable_ipv6=1
+  XINTF=`echo $1 | sed -e 'sX\.X/Xg'`
+  sudo sysctl -w net.ipv6.conf.${XINTF}.disable_ipv6=1
 }
 
 prepareintf () {
@@ -51,14 +51,14 @@ prepareintf () {
   isexist ${INTF}
   if [ "0" = "$RET" ]; then
     case "${INTF}" in
-      eth[0-9].*)
+      *eth[0-9].*)
 	echo [${INTF}]: Ethernet sub-interface
 	INTF_MAIN=`echo ${INTF} | cut -d .  -f 1`
 	INTF_SUB=`echo ${INTF} | cut -d .  -f 2`
 	sudo vconfig add ${INTF_MAIN} ${INTF_SUB}
 	disable_ipv6 ${INTF}
       ;;
-      eth[0-9])
+      *eth[0-9])
 	echo [${INTF}]: Ethernet interface
       ;;
       vlan*)
@@ -88,11 +88,11 @@ cleanintf () {
     # echo IsBridge? $RET
     if [ "0" = "$RET" ]; then
       case "${INTF}" in
-        eth[0-9].*)
+        *eth[0-9].*)
           echo [${INTF}]: Ethernet subinterface
           sudo vconfig rem ${INTF}
         ;;
-        eth*)
+        *eth*)
           echo Ethernet!
         ;;
         vlan*)
@@ -150,15 +150,29 @@ fi
 
 if [ "$VMNAME" = "help" ]; then
   cat <<_EOF_
-vmess: VM Empty Stack Supervisor: A wrapper around bare-bones KVM virtual machines using linux bridged networking.
+vmess: VM Empty Stack Supervisor: A wrapper around bare-bones KVM virtual machines 
+       using linux bridged networking.
 
 Usage:
 
 vmess top
-      Run a "top" command, filtering just the KVM instances
+      Run a "top" command, filtering just the KVM instances.
 
-vmess net 
-      Various operations on the bridge, as a whole
+vmess net ...
+      Various operations on the bridges, as a whole.
+
+vmess net show
+      Show the current configuration of the bridge, in a form suitable 
+      for feeding to the shell to recreate it back.
+
+vmess net vlan <bridge> <intf> <intf> ...
+      Add the <intf>s to the <bridge>, creating all of them if necessary.
+
+vmess net delete <intf>
+      Delete an interface.
+
+vmess net brctl
+      Output a series of brctl commands describing the current state
 
 vmess <vmname> ...
       Various operations on VMs. VM should be in a form [a-z]+[0-9]
@@ -240,8 +254,11 @@ if [ "$VMNAME" = "net" ]; then
 
   if [ "$CMD" = "vlan" ]; then
     mkvlan $1 $2 $3 $4 $5 $6 $7 $8 $9
-    
   fi
+  if [ "$CMD" = "delete" ]; then
+    cleanintf $1
+  fi
+
   if [ "$CMD" = "brctl" ]; then
     brctl show | awk '{if (NF==1) { intf=$1; }; if (NF==4) { print "sudo brctl addbr",$1; intf=$4; br=$1; }; if (NF==3) { print "sudo brctl addbr",$1; } if (NF==1 || NF==4) { print "sudo brctl addif", br, intf; } } END { if ((br!="") && (intf !="")) { print br,intf; } }'
   fi
