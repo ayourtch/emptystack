@@ -295,7 +295,7 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
       # This scary line has 3 parts: ( collect VM's interfaces bridged; collect VM's all interfaces ) 
       # The resulting output is piped to eliminate the interfaces which appear twice, and sort the output accordingly.
       # The output is a line ready to be fed to shell
-      INTFCONNS=`(brctl show | awk '{if (NF==1) { intf=$1; }; if (NF==4) { intf=$4; br=$1; }; if (NF==1 || NF==4) { printf "%40s %40s\n", intf, br; } }' | grep -e "${VMFULLNAME}e[0-9]"; ifconfig -a | grep HWaddr | grep "^${VMFULLNAME}e[0-9]" | awk '{ printf "%40s %40s\n",$1, "-"; }' ) | sort -s -k 1,1 | awk '{ printf "%40s %40s\n", $2, $1 }' | uniq -s 40 | cut -c 1-40 | sed -e 's/^\s\+//g' | tr '\n' ' '`
+      INTFCONNS=`(brctl show | awk '{if (NF==1) { intf=$1; }; if (NF==4) { intf=$4; br=$1; }; if (NF==1 || NF==4) { printf "%40s %40s\n", intf, br; } } END { if ((br!="") && (intf !="")) { print br,intf; } }' | grep -e "${VMFULLNAME}e[0-9]"; ifconfig -a | grep HWaddr | grep "^${VMFULLNAME}e[0-9]" | awk '{ printf "%40s %40s\n",$1, "-"; }' ) | sort -s -k 1,1 | awk '{ printf "%40s %40s\n", $2, $1 }' | uniq -s 40 | cut -c 1-40 | sed -e 's/^\s\+//g' | tr '\n' ' '`
       echo "vmess $VMFULLNAME ifadd $VMNUMINTF $INTFCONNS"
     ;;
     ifadd)
