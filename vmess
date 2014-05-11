@@ -31,6 +31,110 @@ VNCDEFPORT=5900
 USER=`whoami`
 VMDIR="/home/${USER}/vms"
 
+
+isbridge () {
+  RET=`brctl show | grep -v '^\s' | tail -n +2 | awk '{ print $1; }' | grep $1 | wc -l`
+}
+
+isexist () {
+  RET=`ifconfig -a | grep -v '^\s' | awk '{ print $1; }' | grep $1 | wc -l`
+}
+
+disable_ipv6 () {
+  INTF=`echo $1 | sed -e 'sX\.X/Xg'`
+  sudo sysctl -w net.ipv6.conf.${INTF}.disable_ipv6=1
+}
+
+prepareintf () {
+  USER=`whoami`
+  INTF=$1
+  isexist ${INTF}
+  if [ "0" = "$RET" ]; then
+    case "${INTF}" in
+      eth[0-9].*)
+	echo [${INTF}]: Ethernet sub-interface
+	INTF_MAIN=`echo ${INTF} | cut -d .  -f 1`
+	INTF_SUB=`echo ${INTF} | cut -d .  -f 2`
+	sudo vconfig add ${INTF_MAIN} ${INTF_SUB}
+	disable_ipv6 ${INTF}
+      ;;
+      eth[0-9])
+	echo [${INTF}]: Ethernet interface
+      ;;
+      vlan*)
+	echo [${INTF}]: Ethernet VLAN bridge
+      ;;
+      *[0-9]e[0-9])
+	echo preparing a TAP interface ${INTF}
+	sudo tunctl -u ${USER} -t ${INTF}
+	disable_ipv6 ${INTF}
+      ;;
+    esac
+
+    sudo ifconfig ${INTF} up promisc
+  fi
+}
+
+
+cleanintf () {
+  USER=`whoami`
+  INTF=$1
+  isexist ${INTF}
+  if [ "0" = "$RET" ]; then
+    echo Interface ${INTF} does not exist
+  else
+    sudo ifconfig ${INTF} down
+    isbridge ${INTF}
+    # echo IsBridge? $RET
+    if [ "0" = "$RET" ]; then
+      case "${INTF}" in
+        eth[0-9].*)
+          echo [${INTF}]: Ethernet subinterface
+          sudo vconfig rem ${INTF}
+        ;;
+        eth*)
+          echo Ethernet!
+        ;;
+        vlan*)
+          echo VLAN Ethernet!
+        ;;
+        *)
+          echo Assuming Tunnel
+          sudo tunctl -d ${INTF}
+        ;;
+      esac
+    else
+      echo It is a bridge, need to delete
+      sudo brctl delbr ${INTF}
+    fi
+  fi
+
+
+}
+
+
+mkvlan () {
+  BRNAME=$1
+  shift
+  isexist ${BRNAME}
+  if [ "0" = "$RET" ]; then
+    echo Making a VLAN: ${BRNAME}
+    sudo brctl addbr ${BRNAME}
+    # we are just doing bridging, so disable IPv6 on this interface
+    # unless explicitly told
+    disable_ipv6 ${BRNAME}
+    sudo ifconfig ${BRNAME} up promisc
+  else
+    echo VLAN: ${BRNAME} already exists
+  fi
+  for i in "$@"; do
+    prepareintf $i
+    sudo brctl addif ${BRNAME} $i
+  done
+}
+
+
+
 VMNAME=$1
 
 if [ "$VMNAME" = "" ]; then
@@ -167,110 +271,6 @@ SOCAT=`which socat`
 if [ "$SOCAT" = "" ]; then
   sudo apt-get install socat
 fi
-
-
-
-isbridge () {
-  RET=`brctl show | grep -v '^\s' | tail -n +2 | awk '{ print $1; }' | grep $1 | wc -l`
-}
-
-isexist () {
-  RET=`ifconfig -a | grep -v '^\s' | awk '{ print $1; }' | grep $1 | wc -l`
-}
-
-disable_ipv6 () {
-  INTF=`echo $1 | sed -e 'sX\.X/Xg'`
-  sudo sysctl -w net.ipv6.conf.${INTF}.disable_ipv6=1
-}
-
-prepareintf () {
-  USER=`whoami`
-  INTF=$1
-  isexist ${INTF}
-  if [ "0" = "$RET" ]; then
-    case "${INTF}" in
-      eth[0-9].*)
-	echo [${INTF}]: Ethernet sub-interface
-	INTF_MAIN=`echo ${INTF} | cut -d .  -f 1`
-	INTF_SUB=`echo ${INTF} | cut -d .  -f 2`
-	sudo vconfig add ${INTF_MAIN} ${INTF_SUB}
-	disable_ipv6 ${INTF}
-      ;;
-      eth[0-9])
-	echo [${INTF}]: Ethernet interface
-      ;;
-      vlan*)
-	echo [${INTF}]: Ethernet VLAN bridge
-      ;;
-      *)
-	echo preparing a TAP interface ${INTF}
-	sudo tunctl -u ${USER} -t ${INTF}
-	disable_ipv6 ${INTF}
-      ;;
-    esac
-
-    sudo ifconfig ${INTF} up promisc
-  fi
-}
-
-
-cleanintf () {
-  USER=`whoami`
-  INTF=$1
-  isexist ${INTF}
-  if [ "0" = "$RET" ]; then
-    echo Interface ${INTF} does not exist
-  else
-    sudo ifconfig ${INTF} down
-    isbridge ${INTF}
-    # echo IsBridge? $RET
-    if [ "0" = "$RET" ]; then
-      case "${INTF}" in
-        eth[0-9].*)
-          echo [${INTF}]: Ethernet subinterface
-          sudo vconfig rem ${INTF}
-        ;;
-        eth*)
-          echo Ethernet!
-        ;;
-        vlan*)
-          echo VLAN Ethernet!
-        ;;
-        *)
-          echo Assuming Tunnel
-          sudo tunctl -d ${INTF}
-        ;;
-      esac
-    else
-      echo It is a bridge, need to delete
-      sudo brctl delbr ${INTF}
-    fi
-  fi
-
-
-}
-
-
-mkvlan () {
-  BRNAME=$1
-  shift
-  isexist ${BRNAME}
-  if [ "0" = "$RET" ]; then
-    echo Making a VLAN: ${BRNAME}
-    sudo brctl addbr ${BRNAME}
-    # we are just doing bridging, so disable IPv6 on this interface
-    # unless explicitly told
-    disable_ipv6 ${BRNAME}
-    sudo ifconfig ${BRNAME} up promisc
-  else
-    echo VLAN: ${BRNAME} already exists
-  fi
-  for i in "$@"; do
-    prepareintf $i
-    sudo brctl addif ${BRNAME} $i
-  done
-}
-
 
 
 CMD=""
