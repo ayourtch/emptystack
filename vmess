@@ -233,7 +233,7 @@ if [ "$VMNAME" = "net" ]; then
   echo "Network connections per-segment:" >&2
   CMD=$1
   if [ "$CMD" = "" ]; then
-    brctl show | awk -v "foo=$2" '{ if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; } }; if (NF==1 && ($1 ~ foo)) {intf=intf " " $1; }; }' | sed -e 's/^/vmess net vlan /g'
+    brctl show | awk -v "foo=$2" '{ if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; } }; if (NF==1 && ($1 ~ foo)) {intf=intf " " $1; }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }' | sed -e 's/^/vmess net vlan /g'
   else
     shift 
   fi
@@ -243,7 +243,7 @@ if [ "$VMNAME" = "net" ]; then
     
   fi
   if [ "$CMD" = "brctl" ]; then
-    brctl show | awk '{if (NF==1) { intf=$1; }; if (NF==4) { print "sudo brctl addbr",$1; intf=$4; br=$1; }; if (NF==3) { print "sudo brctl addbr",$1; } if (NF==1 || NF==4) { print "sudo brctl addif", br, intf; } }'
+    brctl show | awk '{if (NF==1) { intf=$1; }; if (NF==4) { print "sudo brctl addbr",$1; intf=$4; br=$1; }; if (NF==3) { print "sudo brctl addbr",$1; } if (NF==1 || NF==4) { print "sudo brctl addif", br, intf; } } END { if ((br!="") && (intf !="")) { print br,intf; } }'
   fi
   exit
 fi
