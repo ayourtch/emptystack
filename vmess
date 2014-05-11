@@ -387,6 +387,12 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
     stop)
       OP="stop"
     ;;
+    suspend)
+      OP="suspend"
+    ;;
+    resume)
+      OP="resume"
+    ;;
     *)
       echo Usage
     ;;
@@ -484,6 +490,22 @@ if [ "$OP" = "info" ]; then
   echo "Command for this VM"
   echo "  $CMD"
   OP="status"
+fi
+
+if [ "$OP" = "suspend" ]; then
+  if [ "$RUNPID" = "" ]; then
+    echo VM not running
+  else
+    kill -STOP ${RUNPID}
+  fi
+fi
+
+if [ "$OP" = "resume" ]; then
+  if [ "$RUNPID" = "" ]; then
+    echo VM not running
+  else
+    kill -CONT ${RUNPID}
+  fi
 fi
 
 if [ "$OP" = "status" ]; then
