@@ -295,6 +295,11 @@ if [ "$SOCAT" = "" ]; then
   sudo apt-get install socat
 fi
 
+TUNCTL=`which tunctl`
+if [ "$TUNCTL" = "" ]; then
+  sudo apt-get install uml-utilities
+fi
+
 
 CMD=""
 PARSEARGS=1
