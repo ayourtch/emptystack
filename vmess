@@ -525,6 +525,11 @@ if [ -e ${VMDIRNAME}/SMP ]; then
   CMD="$CMD -smp $SMP"
 fi
 
+if [ -e ${VMDIRNAME}/EXARGS ]; then
+  EXARGS=`cat ${VMDIRNAME}/EXARGS`
+  CMD="$CMD $EXARGS"
+fi
+
 CMD="${CMD} -daemonize"
 
 # echo $CMD
