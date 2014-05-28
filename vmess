@@ -46,20 +46,38 @@ disable_ipv6 () {
 }
 
 prepareintf () {
-  USER=`whoami`
-  INTF=$1
+  local USER=`whoami`
+  local INTF=$1
+  echo Preparing interface $INTF
   isexist ${INTF}
   if [ "0" = "$RET" ]; then
     case "${INTF}" in
       *eth[0-9].*)
 	echo [${INTF}]: Ethernet sub-interface
-	INTF_MAIN=`echo ${INTF} | cut -d .  -f 1`
-	INTF_SUB=`echo ${INTF} | cut -d .  -f 2`
+	local INTF_MAIN=`echo ${INTF} | cut -d .  -f 1`
+	local INTF_SUB=`echo ${INTF} | cut -d .  -f 2`
+	sudo vconfig add ${INTF_MAIN} ${INTF_SUB}
+	disable_ipv6 ${INTF}
+      ;;
+      vxlan[0-9A-Fa-f]*.*)
+	echo [${INTF}]: VXLAN sub-interface
+	local INTF_MAIN=`echo ${INTF} | cut -d .  -f 1`
+	local INTF_SUB=`echo ${INTF} | cut -d .  -f 2`
+        prepareintf ${INTF_MAIN}
 	sudo vconfig add ${INTF_MAIN} ${INTF_SUB}
 	disable_ipv6 ${INTF}
       ;;
       *eth[0-9])
 	echo [${INTF}]: Ethernet interface
+      ;;
+      vxlan*)
+	echo [${INTF}]: VXLAN main interface
+        isexist ${INTF_MAIN}
+        if [ "0" = "$RET" ]; then
+          local VXLAN_ID=`echo ${INTF} | cut -c 6-`
+          sudo vxlanctl create ${VXLAN_ID}
+	  disable_ipv6 ${INTF}
+        fi
       ;;
       vlan*)
 	echo [${INTF}]: Ethernet VLAN bridge
