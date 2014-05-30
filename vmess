@@ -285,6 +285,9 @@ if [ "$VMNAME" = "net" ]; then
   if [ "$CMD" = "delete" ]; then
     cleanintf $1
   fi
+  if [ "$CMD" = "add" ]; then
+    prepareintf $1
+  fi
 
   if [ "$CMD" = "brctl" ]; then
     brctl show | awk '{if (NF==1) { intf=$1; }; if (NF==4) { print "sudo brctl addbr",$1; intf=$4; br=$1; }; if (NF==3) { print "sudo brctl addbr",$1; } if (NF==1 || NF==4) { print "sudo brctl addif", br, intf; } } END { if ((br!="") && (intf !="")) { print br,intf; } }'
