@@ -110,11 +110,20 @@ cleanintf () {
           echo [${INTF}]: Ethernet subinterface
           sudo vconfig rem ${INTF}
         ;;
+        vxlan[0-9A-Fa-f]*.*)
+	  echo [${INTF}]: VXLAN sub-interface
+          sudo vconfig rem ${INTF}
+        ;;
         *eth*)
           echo Ethernet!
         ;;
         vlan*)
           echo VLAN Ethernet!
+        ;;
+        vxlan*)
+	  echo [${INTF}]: VXLAN main interface
+          local VXLAN_ID=`echo ${INTF} | cut -c 6-`
+          sudo vxlanctl destroy ${VXLAN_ID}
         ;;
         *)
           echo Assuming Tunnel
