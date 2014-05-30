@@ -72,7 +72,7 @@ prepareintf () {
       ;;
       vxlan*)
 	echo [${INTF}]: VXLAN main interface
-        isexist ${INTF_MAIN}
+        isexist ${INTF}
         if [ "0" = "$RET" ]; then
           local VXLAN_ID=`echo ${INTF} | cut -c 6-`
           sudo vxlanctl create ${VXLAN_ID}
