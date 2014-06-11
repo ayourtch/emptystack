@@ -31,6 +31,29 @@ VNCDEFPORT=5900
 USER=`whoami`
 VMDIR="/home/${USER}/vms"
 
+getmac () {
+  HASH=`echo "$VMNAME" | md5sum | cut -c 1-6 | sed -e 's/\(..\)/\1:/g'`
+  RET=`printf "02:%s%02x:%02x" $HASH $VMINST $1`
+}
+
+getvncdisplay () {
+  HEX=`echo "$VMNAME" | md5sum | cut -c 1-3` 
+  DEC=`printf "%d" 0x${HEX}` 
+  VNCDISPLAY=$((1+${VMINST} + (${DEC} * 10) ))
+  VNCPORT=$((5900 + ${VNCDISPLAY}))
+}
+
+vmsetvars () {
+VMINST=`echo $VMNAME | sed -e 's/\([0-9]\)$/.\1/g' | cut -d . -f 2`
+if [ "$VMINST" = "$VMNAME" ]; then
+  VMINST=0
+else
+  VMNAME=`echo $VMNAME | sed -e 's/\([0-9]\)$/.\1/g' | cut -d . -f 1`
+fi
+VMFULLNAME=${VMNAME}${VMINST}
+VMDIRNAME="${VMDIR}/${VMFULLNAME}"
+}
+
 
 isbridge () {
   RET=`brctl show | grep -v '^\s' | tail -n +2 | awk '{ print $1; }' | grep $1 | wc -l`
@@ -175,6 +198,23 @@ if [ "$VMNAME" = "" ]; then
   exit
 fi
 
+if [ "$VMNAME" = "status" ]; then
+  ifconfig -a  | grep 'Link encap:' | cut -d' ' -f1 | sed -e 's/^/vmess net add /'
+  vmess net 2>/dev/null | grep vmess
+  VNCNUMS=`vmess | grep vnc | perl -ne 'if(/-vnc :([0-9]+) /) { print ":$1:"; }'`
+  VMNAMES=`ls -ald ${VMDIR}/*[0-9] | sed "s#${VMDIR}/##g" | rev | cut -d' '  -f1 | rev`
+  for aVM in $VMNAMES; do
+    VMNAME=$aVM
+    vmsetvars
+    getvncdisplay
+    xVNCNUMS=VNCNUMS
+    if echo $VNCNUMS | egrep -q :$VNCDISPLAY:; then
+      echo vmess $aVM start
+    fi 
+  done
+  exit
+fi
+
 if [ "$VMNAME" = "help" ]; then
   cat <<_EOF_
 vmess: VM Empty Stack Supervisor: A wrapper around bare-bones KVM virtual machines 
@@ -200,6 +240,10 @@ vmess net delete <intf>
 
 vmess net brctl
       Output a series of brctl commands describing the current state
+
+vmess status
+      Output a series of vmess commands to recreate the current state.
+      This includes networking and running VMs.
 
 vmess <vmname> ...
       Various operations on VMs. VM should be in a form [a-z]+[0-9]
@@ -297,14 +341,7 @@ fi
 
 shift
 
-VMINST=`echo $VMNAME | sed -e 's/\([0-9]\)$/.\1/g' | cut -d . -f 2`
-if [ "$VMINST" = "$VMNAME" ]; then
-  VMINST=0
-else
-  VMNAME=`echo $VMNAME | sed -e 's/\([0-9]\)$/.\1/g' | cut -d . -f 1`
-fi
-VMFULLNAME=${VMNAME}${VMINST}
-VMDIRNAME="${VMDIR}/${VMFULLNAME}"
+vmsetvars
 if [ ! -d ${VMDIRNAME} ]; then
   echo You need to create directory ${VMDIRNAME} if are serious about that VM - use vmess make
   if [ "$1" = "make" ] ; then
@@ -457,18 +494,6 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
   esac
 
 done
-
-getmac () {
-  HASH=`echo "$VMNAME" | md5sum | cut -c 1-6 | sed -e 's/\(..\)/\1:/g'`
-  RET=`printf "02:%s%02x:%02x" $HASH $VMINST $1`
-}
-
-getvncdisplay () {
-  HEX=`echo "$VMNAME" | md5sum | cut -c 1-3` 
-  DEC=`printf "%d" 0x${HEX}` 
-  VNCDISPLAY=$((1+${VMINST} + (${DEC} * 10) ))
-  VNCPORT=$((5900 + ${VNCDISPLAY}))
-}
 
 
 
