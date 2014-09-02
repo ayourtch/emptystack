@@ -92,6 +92,7 @@ prepareintf () {
       ;;
       *eth[0-9])
 	echo [${INTF}]: Ethernet interface
+	disable_ipv6 ${INTF}
       ;;
       vxlan*)
 	echo [${INTF}]: VXLAN main interface
@@ -180,6 +181,12 @@ mkvlan () {
   for i in "$@"; do
     prepareintf $i
     sudo brctl addif ${BRNAME} $i
+    if [ "1" = "$?" ]; then
+      OLDBR=`vmess net | grep $i | awk '{ print $4; }'`
+      echo "Need to remove from old bridge: $OLDBR"
+      sudo brctl delif ${OLDBR} $i
+      sudo brctl addif ${BRNAME} $i
+    fi
   done
 }
 
