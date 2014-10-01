@@ -544,7 +544,7 @@ PIDCMD="vnc 127.0.0.1:${VNCDISPLAY}"
 
 if [ "${OP}" = "vnc" ]; then
   echo Please VNC to ${VNCDEFPORT} to connect to this VM console
-  socat TCP-LISTEN:${VNCDEFPORT},reuseaddr TCP:localhost:$VNCPORT &
+  socat TCP6-LISTEN:${VNCDEFPORT},reuseaddr TCP:localhost:$VNCPORT &
 fi
 
 if [ -e ${VMDIRNAME}/${VMFULLNAME}-hda.img ]; then
