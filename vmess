@@ -532,7 +532,8 @@ do
       mkvlan ${BRIDGEVLAN} ${IFNAME}
     fi
   fi
-  IFCFG=" -net tap,vlan=$i,ifname=${IFNAME},script=/bin/true -net nic,vlan=$i,macaddr=${RET}"
+  NIC_EXARGS=`cat ${VMDIRNAME}/NIC_EXARGS 2>/dev/null`
+  IFCFG=" -net tap,vlan=$i,ifname=${IFNAME},script=/bin/true -net nic,vlan=$i,macaddr=${RET},${NIC_EXARGS}"
   CMD="${CMD}${IFCFG}"
 done
 
