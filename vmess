@@ -548,6 +548,8 @@ if [ "x$VMLOCKED" = "x1" ]; then
   case "$OP" in
     info)
     ;;
+    vnc)
+    ;;
     *)
       echo VM is locked, operation $OP not permitted.
       exit 1
