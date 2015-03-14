@@ -30,6 +30,22 @@ VNCDEFPORT=5900
 
 USER=`whoami`
 VMDIR="/home/${USER}/vms"
+LOCKDIR="/home/${USER}/.vmess.lock"
+
+checkvmlock() {
+  mkdir ${LOCKDIR} 2>/dev/null
+  RET=`ls -d ${LOCKDIR}/${VMFULLNAME} 2>/dev/null | wc -l`
+}
+
+setlock () {
+  mkdir ${LOCKDIR} 2>/dev/null
+  touch ${LOCKDIR}/${VMFULLNAME}
+}
+
+clearlock () {
+  mkdir ${LOCKDIR} 2>/dev/null
+  rm ${LOCKDIR}/${VMFULLNAME}
+}
 
 getmac () {
   HASH=`echo "$VMNAME" | md5sum | cut -c 1-6 | sed -e 's/\(..\)/\1:/g'`
@@ -360,6 +376,10 @@ fi
 
 VMNUMINTF=`ifconfig -a | grep HWaddr | grep "^${VMNAME}${VMINST}e[0-9]" | wc -l`
 
+VCONFIG=`which vconfig`
+if [ "$VCONFIG" = "" ]; then
+  sudo apt-get install vlan
+fi
 REALPATH=`which realpath`
 if [ "$REALPATH" = "" ]; then
   sudo apt-get install realpath
@@ -495,6 +515,22 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
     resume)
       OP="resume"
     ;;
+    lock)
+      setlock
+      echo VM locked
+      exit
+    ;;
+    unlock)
+      echo Type "Unlock" to confirm clearing lock on this VM, or Ctrl-C to stop
+      read ANSWER
+      if [ "x$ANSWER" = "xUnlock" ]; then
+        clearlock
+        echo VM unlocked
+      else
+        echo Not unlocked
+      fi
+      exit
+    ;;
     *)
       echo Usage
     ;;
@@ -503,6 +539,22 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
 done
 
 
+# Lock check
+checkvmlock
+VMLOCKED=${RET}
+
+if [ "x$VMLOCKED" = "x1" ]; then
+  # in locked state only subset of operations is permitted
+  case "$OP" in
+    info)
+    ;;
+    *)
+      echo VM is locked, operation $OP not permitted.
+      exit 1
+    ;;
+  esac
+fi
+# end Lock check
 
 PRECMD=""
 
