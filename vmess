@@ -33,27 +33,45 @@ VMDIR="/home/${USER}/vms"
 LOCKDIR="/home/${USER}/.vmess.lock"
 
 BRCTL=`which brctl`
-if [ "$BRCTL" = "" ]; then
-  sudo apt-get install bridge-utils
-fi
 VCONFIG=`which vconfig`
-if [ "$VCONFIG" = "" ]; then
-  sudo apt-get install vlan
-fi
 REALPATH=`which realpath`
-if [ "$REALPATH" = "" ]; then
-  sudo apt-get install realpath
-fi
 SOCAT=`which socat`
-if [ "$SOCAT" = "" ]; then
-  sudo apt-get install socat
-fi
-
 TUNCTL=`which tunctl`
-if [ "$TUNCTL" = "" ]; then
-  sudo apt-get install uml-utilities
+KVM=`which kvm`
+
+if [ "$1" = "install" ]; then
+  INSTALL=""
+  if [ "$BRCTL" = "" ]; then
+    INSTALL=$INSTALL" bridge-utils"
+  fi
+  if [ "$VCONFIG" = "" ]; then
+    INSTALL=$INSTALL" vlan"
+  fi
+  if [ "$REALPATH" = "" ]; then
+    INSTALL=$INSTALL" realpath"
+  fi
+  if [ "$SOCAT" = "" ]; then
+    INSTALL=$INSTALL" socat"
+  fi
+  if [ "$TUNCTL" = "" ]; then
+    INSTALL=$INSTALL" uml-utilities"
+  fi
+  if [ "$KVM" = "" ]; then
+    INSTALL=$INSTALL" qemu-kvm libvirt-bin"
+  fi
+  if [ "$INSTALL" != "" ]; then
+    echo "Installing vmess missing dependencies: $INSTALL"
+    sudo apt-get install $INSTALL
+  else
+    echo "No missing dependency."
+  fi
+  exit
 fi
 
+if [ "$BRCTL" = "" -o "$VCONFIG" = "" -o "$REALPATH" = "" -o "$SOCAT" = "" -o "$TUNCTL" = "" -o "$KVM" = "" ]; then
+  echo "Missing vmess dependencies. Please run 'vmess install'."
+  exit 1
+fi
 
 checkvmlock() {
   mkdir ${LOCKDIR} 2>/dev/null
@@ -270,6 +288,9 @@ Usage:
 
 vmess top
       Run a "top" command, filtering just the KVM instances.
+
+vmess install
+      Install vmess missing dependencies.
 
 vmess net ...
       Various operations on the bridges, as a whole.
