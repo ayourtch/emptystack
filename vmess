@@ -528,7 +528,17 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
         shift 
       fi
     ;;
-   
+    shared)
+      OP="shared"
+      [ "$1" = "" -o "$2" = "" ] && echo "shared [add|del] id <path>" && exit 1
+      if [ "$1" = "add" ]; then
+	ln -s $3 ${VMDIRNAME}/${VMFULLNAME}-fs-$2 && exit $?
+      elif [ "$1" = "del" ]; then
+        rm ${VMDIRNAME}/${VMFULLNAME}-fs-$2 && exit $?
+      else
+        echo "shared [add|del] id <path>" && exit 1
+      fi
+    ;;
     start)
       OP="start"
     ;;
@@ -654,6 +664,12 @@ if [ -e ${VMDIRNAME}/EXARGS ]; then
   EXARGS=`cat ${VMDIRNAME}/EXARGS`
   CMD="$CMD $EXARGS"
 fi
+
+for dir in `ls -d ${VMDIRNAME}/${VMFULLNAME}-fs-* 2> /dev/null`
+do
+  dir=`echo $dir | sed "s,.*/${VMFULLNAME}-fs-\(.*$\),\1,"`
+  CMD="$CMD -fsdev local,security_model=passthrough,id=fsdev_$dir,path=${VMDIRNAME}/${VMFULLNAME}-fs-$dir -device virtio-9p-pci,id=${VMFULLNAME}_$dir,fsdev=fsdev_$dir,mount_tag=$dir"
+done
 
 CMD="${CMD} -daemonize"
 
