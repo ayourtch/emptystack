@@ -519,6 +519,8 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
         done
         rmdir ${VMDIRNAME}/${VMFULLNAME}-$ARG.d
         sudo $KPARTX -d "${VMDIRNAME}/${VMFULLNAME}-$ARG.img"
+      elif [ "$1" = "delete" ]; then
+        rm ${VMDIRNAME}/${VMFULLNAME}-$ARG.img
       else
         dd if=/dev/zero of=${VMDIRNAME}/${VMFULLNAME}-$ARG.img bs=1 count=1 seek=$1
       fi
@@ -663,13 +665,11 @@ if [ "${OP}" = "vnc" ]; then
   socat TCP6-LISTEN:${VNCDEFPORT},reuseaddr TCP:localhost:$VNCPORT &
 fi
 
-if [ -e ${VMDIRNAME}/${VMFULLNAME}-hda.img ]; then
-  CMD="$CMD -hda ${VMDIRNAME}/${VMFULLNAME}-hda.img"
-fi
-
-if [ -e ${VMDIRNAME}/${VMFULLNAME}-hdb.img ]; then
-  CMD="$CMD -hdb ${VMDIRNAME}/${VMFULLNAME}-hdb.img"
-fi
+for disk in hda hdb hdc hde; do
+  if [ -e ${VMDIRNAME}/${VMFULLNAME}-$disk.img ]; then
+    CMD="$CMD -$disk ${VMDIRNAME}/${VMFULLNAME}-$disk.img"
+  fi
+done
 
 if [ -e ${VMDIRNAME}/${VMFULLNAME}-cdrom.iso ]; then
   CMD="$CMD -cdrom ${VMDIRNAME}/${VMFULLNAME}-cdrom.iso"
