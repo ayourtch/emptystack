@@ -517,9 +517,12 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
       OP="shared"
       [ "$1" = "" -o "$2" = "" ] && echo "shared [add|del] id <path>" && exit 1
       if [ "$1" = "add" ]; then
-	ln -s $3 ${VMDIRNAME}/${VMFULLNAME}-fs-$2 && exit $?
+        [ "$3" = "" ] && echo "Missing argument" && exit 1
+	ln -s $3 ${VMDIRNAME}/${VMFULLNAME}-fs-$2
+        shift 3
       elif [ "$1" = "del" ]; then
-        rm ${VMDIRNAME}/${VMFULLNAME}-fs-$2 && exit $?
+        rm ${VMDIRNAME}/${VMFULLNAME}-fs-$2
+        shift 2
       else
         echo "shared [add|del] id <path>" && exit 1
       fi
