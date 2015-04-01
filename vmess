@@ -325,8 +325,7 @@ vmess <vmname> ram <size>
       Set the size of RAM for the VM and store it inside the VM's dir.
 
 
-vmess <vmname> hda <size>
-vmess <vmname> hdb <size>
+vmess <vmname> hd[a|b|c|d] <size>
       Create a sparse file for the first and second disk.
       Note that because the file is created with a "seek" option of dd, 
       the subsequent invocations of the command do not delete the file,
