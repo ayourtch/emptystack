@@ -38,6 +38,7 @@ REALPATH=`which realpath`
 SOCAT=`which socat`
 TUNCTL=`which tunctl`
 KVM=`which kvm`
+KPARTX=`which kpartx`
 
 if [ "$1" = "install" ]; then
   INSTALL=""
@@ -59,6 +60,9 @@ if [ "$1" = "install" ]; then
   if [ "$KVM" = "" ]; then
     INSTALL=$INSTALL" qemu-kvm libvirt-bin"
   fi
+  if [ "$KPARTX" = "" ]; then
+    INSTALL=$INSTALL" kpartx"
+  fi
   if [ "$INSTALL" != "" ]; then
     echo "Installing vmess missing dependencies: $INSTALL"
     sudo apt-get install $INSTALL
@@ -68,7 +72,7 @@ if [ "$1" = "install" ]; then
   exit
 fi
 
-if [ "$BRCTL" = "" -o "$VCONFIG" = "" -o "$REALPATH" = "" -o "$SOCAT" = "" -o "$TUNCTL" = "" -o "$KVM" = "" ]; then
+if [ "$BRCTL" = "" -o "$VCONFIG" = "" -o "$REALPATH" = "" -o "$SOCAT" = "" -o "$TUNCTL" = "" -o "$KVM" = "" -o "$KPARTX" = "" ]; then
   echo "Missing vmess dependencies. Please run 'vmess install'."
   exit 1
 fi
@@ -325,6 +329,15 @@ vmess <vmname> ram <size>
       Set the size of RAM for the VM and store it inside the VM's dir.
 
 
+vmess <vmname> hd[a|b|c|d] mount
+      Tries to mount disk image partitions using kpartx and mount.
+      Successfully mounted partitions appear in vms/vmname/vmname-hda.d/partX/ 
+      where X is the number of the partition.
+
+vmess <vmname> hd[a|b|c|d] umount
+      Unmounts partitions mounted with the above mount command and
+      cleans related directories.
+
 vmess <vmname> hd[a|b|c|d] <size>
       Create a sparse file for the first and second disk.
       Note that because the file is created with a "seek" option of dd, 
@@ -484,7 +497,31 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
     hd[abcd])
       OP="$ARG"
       [ "$1" = "" ] && echo Missing argument && exit 1
-      dd if=/dev/zero of=${VMDIRNAME}/${VMFULLNAME}-$ARG.img bs=1 count=1 seek=$1
+      if [ "$1" = "mount" ]; then
+        #We first test if something bad happens. If not, proceed fluently.
+        sudo $KPARTX -l "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" >/dev/null
+        [ "$?" != "0" ] && echo kpartx error && exit 1
+        mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d"
+        devnum="0"
+        for dev in `sudo $KPARTX -av "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" | awk '{ print $3 }'`; do
+          mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
+          sudo mount "/dev/mapper/$dev" "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum" >/dev/null 2>&1
+          if [ "$?" != "0" ]; then
+            rmdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
+          fi
+          devnum=`expr $devnum + 1`
+        done
+      elif [ "$1" = "umount" ]; then
+        [ ! -d ${VMDIRNAME}/${VMFULLNAME}-$ARG.d ] && echo "Not mounted" && exit 1
+        for mounted in `ls ${VMDIRNAME}/${VMFULLNAME}-$ARG.d/`; do
+          sudo umount "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/$mounted"
+          rmdir ${VMDIRNAME}/${VMFULLNAME}-$ARG.d/$mounted
+        done
+        rmdir ${VMDIRNAME}/${VMFULLNAME}-$ARG.d
+        sudo $KPARTX -d "${VMDIRNAME}/${VMFULLNAME}-$ARG.img"
+      else
+        dd if=/dev/zero of=${VMDIRNAME}/${VMFULLNAME}-$ARG.img bs=1 count=1 seek=$1
+      fi
       shift
     ;;
     cdrom)
