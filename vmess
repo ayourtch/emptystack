@@ -482,25 +482,11 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
       shift
       echo $RAMSIZE >${VMDIRNAME}/RAM
     ;;
-    hda)
-      OP="hda"
-      if [ "$1" = "" ]; then
-        echo Missing argument
-        exit
-      fi
-      HDASIZE=$1
+    hd[abcd])
+      OP="$ARG"
+      [ "$1" = "" ] && echo Missing argument && exit 1
+      dd if=/dev/zero of=${VMDIRNAME}/${VMFULLNAME}-$ARG.img bs=1 count=1 seek=$1
       shift
-      dd if=/dev/zero of=${VMDIRNAME}/${VMFULLNAME}-hda.img bs=1 count=1 seek=${HDASIZE}
-    ;;
-    hdb)
-      OP="hdb"
-      if [ "$1" = "" ]; then
-        echo Missing argument
-        exit
-      fi
-      HDBSIZE=$1
-      shift
-      dd if=/dev/zero of=${VMDIRNAME}/${VMFULLNAME}-hdb.img bs=1 count=1 seek=${HDBSIZE}
     ;;
     cdrom)
       OP="cdrom"
