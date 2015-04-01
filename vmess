@@ -494,6 +494,21 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
       shift
       echo $RAMSIZE >${VMDIRNAME}/RAM
     ;;
+    compress)
+      OP="$ARG"
+      for disk in `ls ${VMDIRNAME}/${VMFULLNAME}-hd[abcd].img`; do
+         echo "Compressing $disk"
+         gzip "$disk"
+      done
+    ;;
+    uncompress)
+      for disk in hda hdb hdc hdd; do
+        if [ -e ${VMDIRNAME}/${VMFULLNAME}-$disk.img.gz ]; then
+          echo "Decompressing ${VMDIRNAME}/${VMFULLNAME}-$disk.img.gz"
+          gzip -d "${VMDIRNAME}/${VMFULLNAME}-$disk.img.gz"
+        fi
+      done
+    ;;
     hd[abcd])
       OP="$ARG"
       [ "$1" = "" ] && echo Missing argument && exit 1
@@ -668,6 +683,10 @@ if [ "${OP}" = "vnc" ]; then
 fi
 
 for disk in hda hdb hdc hde; do
+  if [ -e ${VMDIRNAME}/${VMFULLNAME}-$disk.img.gz ]; then
+    echo "Warning - ${VMFULLNAME}-$disk.img.gz looks like a compressed file."
+    echo "You should run 'vmess ${VMFULLNAME} uncompress'"
+  fi
   if [ -e ${VMDIRNAME}/${VMFULLNAME}-$disk.img ]; then
     CMD="$CMD -$disk ${VMDIRNAME}/${VMFULLNAME}-$disk.img"
   fi
