@@ -513,19 +513,24 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
       OP="$ARG"
       [ "$1" = "" ] && echo Missing argument && exit 1
       if [ "$1" = "mount" ]; then
-        #We first test if something bad happens. If not, proceed fluently.
-        sudo $KPARTX -l "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" >/dev/null
-        [ "$?" != "0" ] && echo kpartx error && exit 1
-        mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d"
-        devnum="0"
-        for dev in `sudo $KPARTX -av "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" | awk '{ print $3 }'`; do
-          mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
-          sudo mount "/dev/mapper/$dev" "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum" >/dev/null 2>&1
-          if [ "$?" != "0" ]; then
-            rmdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
-          fi
-          devnum=`expr $devnum + 1`
-        done
+        #First try to mount it directly
+        mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d" && mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part0"
+        sudo mount -o loop "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part0"
+	if [ "$?" != "0" ]; then
+          rmdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part0" && rmdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d"
+          #We first test if something bad happens. If not, proceed fluently.
+          sudo $KPARTX -l "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" >/dev/null
+          [ "$?" != "0" ] && echo kpartx error && exit 1
+          devnum="0"
+          for dev in `sudo $KPARTX -av "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" | awk '{ print $3 }'`; do
+            mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
+            sudo mount "/dev/mapper/$dev" "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum" >/dev/null 2>&1
+            if [ "$?" != "0" ]; then
+              rmdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
+            fi
+            devnum=`expr $devnum + 1`
+          done
+        fi
       elif [ "$1" = "umount" ]; then
         [ ! -d ${VMDIRNAME}/${VMFULLNAME}-$ARG.d ] && echo "Not mounted" && exit 1
         for mounted in `ls ${VMDIRNAME}/${VMFULLNAME}-$ARG.d/`; do
