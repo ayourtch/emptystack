@@ -29,8 +29,6 @@
 VNCDEFPORT=5900
 
 USER=`whoami`
-VMDIR="/home/${USER}/vms"
-LOCKDIR="/home/${USER}/.vmess.lock"
 
 BRCTL=`which brctl`
 VCONFIG=`which vconfig`
@@ -75,6 +73,23 @@ fi
 if [ "$BRCTL" = "" -o "$VCONFIG" = "" -o "$REALPATH" = "" -o "$SOCAT" = "" -o "$TUNCTL" = "" -o "$KVM" = "" -o "$KPARTX" = "" ]; then
   echo "Missing vmess dependencies. Please run 'vmess install'."
   exit 1
+fi
+
+# Get the VM directory.
+# We keep VMESS_VMDIR if set, or use ./vms, or the user vms directory.
+if [ "$VMESS_VMDIR" = "" ]; then
+	if [ -d "./vms" ]; then
+		VMDIR=`realpath ./vms`
+	else
+		VMDIR=/home/${USER}/vms
+	fi
+else
+	VMDIR=$VMESS_VMDIR
+fi
+LOCKDIR="/home/${USER}/.vmess.lock"
+if [ ! -d "$VMDIR" ]; then
+	echo "Could not find VMDIR directory $VMDIR."
+	exit 1
 fi
 
 checkvmlock() {
