@@ -383,6 +383,10 @@ vmess <vmname> vnc
       Start a socat instance relaying the main machine's display to the VM's vnc console.
       This socat instance serves a single connection attempt from the operator.
 
+vmess <vmname> shared [add|del] <id> <path>
+      Adds or removes a shared directory. This can be done manualy by adding or removing
+      simlinks named <vmname>-fs-<id> in the vm directory.
+
 _EOF_
   exit
 fi
