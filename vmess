@@ -387,6 +387,10 @@ vmess <vmname> shared [add|del] <id> <path>
       Adds or removes a shared directory. This can be done manualy by adding or removing
       simlinks named <vmname>-fs-<id> in the vm directory.
 
+vmess <vmname> shared fstab
+      Output lines which should be added to /etc/fstab in the VM to mount the shared
+      files automatically.
+
 _EOF_
   exit
 fi
@@ -578,16 +582,23 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
     ;;
     shared)
       OP="shared"
-      [ "$1" = "" -o "$2" = "" ] && echo "shared [add|del] id <path>" && exit 1
       if [ "$1" = "add" ]; then
-        [ "$3" = "" ] && echo "Missing argument" && exit 1
-	ln -s $3 ${VMDIRNAME}/${VMFULLNAME}-fs-$2
+        [ "$2" = "" -o "$3" = "" ] && echo "Missing argument" && exit 1
+        sharedfile=`realpath $3` || (echo "File do not exist" && exit 1)
+	ln -s $sharedfile ${VMDIRNAME}/${VMFULLNAME}-fs-$2
         shift 3
       elif [ "$1" = "del" ]; then
+        [ "$2" = "" ] && echo "Missing argument" && exit 1
         rm ${VMDIRNAME}/${VMFULLNAME}-fs-$2
         shift 2
+      elif [ "$1" = "fstab" ]; then
+        for dir in `ls -d ${VMDIRNAME}/${VMFULLNAME}-fs-* 2> /dev/null`; do
+          dir=`echo $dir | sed "s,.*/${VMFULLNAME}-fs-\(.*$\),\1,"`
+          echo "$dir   /host/$dir    9p  trans=virtio,version=9p2000.L,rw    0   0"
+        done
+        shift 1
       else
-        echo "shared [add|del] id <path>" && exit 1
+        echo "Invalid argument" && exit 1
       fi
     ;;
     start)
