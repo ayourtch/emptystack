@@ -415,6 +415,12 @@ vmess <vmname> shared fstab
       Output lines which should be added to /etc/fstab in the VM to mount the shared
       files automatically.
 
+vmess <vmname> overlay [mount|umount]
+      Inside the VMs directory, for every <vmname>-fso-<tag> and <vmname>-fsu-<tag>
+      directories, an overlayfs is created and named <vmname>-fs-<tag> such that it
+      uses shared with the VM. 'fsu' directory is used as underlay and 'fso' directory
+      is used as overlay.
+
 _EOF_
   exit
 fi
@@ -623,6 +629,23 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
         shift 1
       else
         echo "Invalid argument" && exit 1
+      fi
+    ;;
+    overlay)
+      OP="overlay"
+      if [ "$1" = "mount" ]; then
+        for dir in `ls -d ${VMDIRNAME}/${VMFULLNAME}-fslo-* 2> /dev/null`; do
+          tag=`echo $dir | sed "s,.*/${VMFULLNAME}-fslo-\(.*$\),\1,"`
+          [ ! -e "${VMDIRNAME}/${VMFULLNAME}-fs-$tag" ] && mkdir ${VMDIRNAME}/${VMFULLNAME}-fs-$tag
+          sudo mount -t overlayfs -o lowerdir=${VMDIRNAME}/${VMFULLNAME}-fslo-$tag,upperdir=${VMDIRNAME}/${VMFULLNAME}-fsup-$tag overlayfs ${VMDIRNAME}/${VMFULLNAME}-fs-$tag
+        done
+        shift 1
+      elif [ "$1" = "umount" ]; then
+	for dir in `ls -d ${VMDIRNAME}/${VMFULLNAME}-fslo-* 2> /dev/null`; do
+          tag=`echo $dir | sed "s,.*/${VMFULLNAME}-fslo-\(.*$\),\1,"`
+          sudo umount ${VMDIRNAME}/${VMFULLNAME}-fs-$tag && rmdir ${VMDIRNAME}/${VMFULLNAME}-fs-$tag
+        done
+        shift 1
       fi
     ;;
     start)
