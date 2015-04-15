@@ -151,6 +151,15 @@ prepareintf () {
   isexist ${INTF}
   if [ "0" = "$RET" ]; then
     case "${INTF}" in
+      veth[A-B][0-9])
+        local INTF_NUM=`echo ${INTF} | sed -e 's/veth[A-B]//g'`
+        echo [${INTF}]: Virtual Ethernet link pair ${INTF_NUM} member
+        sudo ip link add name vethA${INTF_NUM} type veth peer name vethB${INTF_NUM}
+        disable_ipv6 vethA${INTF_NUM}
+        disable_ipv6 vethB${INTF_NUM}
+        sudo ifconfig vethA${INTF_NUM} up promisc
+        sudo ifconfig vethB${INTF_NUM} up promisc
+      ;;
       *eth[0-9].*)
 	echo [${INTF}]: Ethernet sub-interface
 	local INTF_MAIN=`echo ${INTF} | cut -d .  -f 1`
