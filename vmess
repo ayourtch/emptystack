@@ -710,6 +710,7 @@ INTFSEQ=$((${VMNUMINTF} - 1 ))
 for i in `seq 0 ${INTFSEQ}`
 do
   getmac $i
+  MACADDR="${RET}"
   IFNAME="${VMNAME}${VMINST}e$i"
   if [ "${OP}" = "intf-add" ]; then
     prepareintf ${IFNAME}
@@ -740,7 +741,7 @@ do
     NIC_MODEL="e1000"
   fi
   
-  IFCFG=" -device ${NIC_MODEL},netdev=net$i,mac=${RET} -netdev tap,id=net$i,ifname=${IFNAME},script=/bin/true"
+  IFCFG=" -device ${NIC_MODEL},netdev=net$i,mac=${MACADDR} -netdev tap,id=net$i,ifname=${IFNAME},script=/bin/true"
   CMD="${CMD}${IFCFG}"
 done
 
