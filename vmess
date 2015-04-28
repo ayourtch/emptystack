@@ -735,7 +735,12 @@ do
   NIC_EXARGS=`cat ${VMDIRNAME}/NIC_EXARGS 2>/dev/null`
   #The following arg syntax has a limitation of 8 nics.
   #IFCFG=" -net tap,vlan=$i,ifname=${IFNAME},script=/bin/true -net nic,vlan=$i,macaddr=${RET},${NIC_EXARGS}"
-  IFCFG=" -device e1000,netdev=net$i,mac=${RET},${NIC_EXARGS} -netdev tap,id=net$i,ifname=${IFNAME},script=/bin/true"
+  NIC_MODEL=`cat ${VMDIRNAME}/NIC_MODEL 2>/dev/null`
+  if [ "x${NIC_MODEL}" = "x" ]; then
+    NIC_MODEL="e1000"
+  fi
+  
+  IFCFG=" -device ${NIC_MODEL},netdev=net$i,mac=${RET} -netdev tap,id=net$i,ifname=${IFNAME},script=/bin/true"
   CMD="${CMD}${IFCFG}"
 done
 
