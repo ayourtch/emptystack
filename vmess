@@ -292,7 +292,7 @@ fi
 
 if [ "$VMNAME" = "status" ]; then
   ifconfig -a  | grep 'Link encap:' | cut -d' ' -f1 | sed -e 's/^/vmess net add /'
-  vmess net 2>/dev/null | grep vmess
+  vmess net status 2>/dev/null
   VNCNUMS=`vmess | grep vnc | perl -ne 'if(/-vnc :([0-9]+) /) { print ":$1:"; }'`
   VMNAMES=`ls -ald ${VMDIR}/*[0-9] | sed "s#${VMDIR}/##g" | rev | cut -d' '  -f1 | rev`
   for aVM in $VMNAMES; do
@@ -434,7 +434,7 @@ if [ "$VMNAME" = "net" ]; then
   shift
   echo "Network connections per-segment:" >&2
   CMD=$1
-  if [ "$CMD" = "" ]; then
+  if [ "$CMD" = "" -o "$CMD" = "status" ]; then
 
     # collect the bridge configuration in a form <bridge> <member1> <member2> ... - thus, one VLAN per line
     NETCONNS=`brctl show | awk -v "foo=$2" '{ if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; } }; if (NF==1 && ($1 ~ foo)) {intf=intf " " $1; }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }'`
@@ -442,8 +442,10 @@ if [ "$VMNAME" = "net" ]; then
     # output the commands to recreate the bridges
     echo "$NETCONNS" | sed -e 's/^/vmess net vlan /g'
 
-    # find the bridges which have IPv6 enabled, and generate commands to enable it
-    echo "$NETCONNS" | awk '{ print $1; }' | xargs -n 1 ip -6 addr show | grep PROMISC | awk -F ': ' '{ print $2; }' | sed -e 'sX\.X/Xg' | sed -e 's/^\(.\{1,\}\)/sudo sysctl -w net.ipv6.conf.\1.disable_ipv6=0/g' 
+    if [ "$CMD" = "status" ]; then
+      # find the bridges which have IPv6 enabled, and generate commands to enable it
+      echo "$NETCONNS" | awk '{ print $1; }' | xargs -n 1 ip -6 addr show | grep PROMISC | awk -F ': ' '{ print $2; }' | sed -e 'sX\.X/Xg' | sed -e 's/^\(.\{1,\}\)/sudo sysctl -w net.ipv6.conf.\1.disable_ipv6=0/g' 
+    fi
   else
     shift 
   fi
