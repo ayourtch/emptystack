@@ -786,6 +786,9 @@ fi
 if [ "${OP}" = "relay" ]; then
   getvncdisplay
   RELAYDEFPORT=$((2200 + ${VNCDISPLAY}))
+  if [ "$TARGETRELAYPORT" = "5900" ]; then
+    RELAYDEFPORT=5900
+  fi
   get_ipv6_ll ${RELAYDEFINT}
   IPV6LLADDR=$RET
   getnetconns
