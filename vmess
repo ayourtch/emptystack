@@ -27,6 +27,7 @@
 
 
 VNCDEFPORT=5900
+RELAYDEFINT=0
 
 USER=`whoami`
 
@@ -110,6 +111,11 @@ clearlock () {
 getmac () {
   HASH=`echo "$VMNAME" | md5sum | cut -c 1-6 | sed -e 's/\(..\)/\1:/g'`
   RET=`printf "02:%s%02x:%02x" $HASH $VMINST $1`
+}
+
+get_ipv6_ll () {
+  INSTINTF=`printf "%02x%02x" $VMINST $1`
+  RET=`echo "$VMNAME" | md5sum | cut -c 1-6 | sed -e "s/\(..\)\(..\)\(..\)/fe80::\1:\2ff:fe\3:$INSTINTF/g"`
 }
 
 getvncdisplay () {
@@ -523,6 +529,15 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
     vnc)
       OP="vnc"
     ;;
+    relay)
+      if [ "$1" = "" ]; then
+        echo Missing argument - which tcp port on the target to relay ?
+        exit
+      fi
+      TARGETRELAYPORT=$1
+      shift
+      OP="relay"
+    ;;
     info)
       OP="info"
     ;;
@@ -766,6 +781,22 @@ PIDCMD="vnc 127.0.0.1:${VNCDISPLAY}"
 if [ "${OP}" = "vnc" ]; then
   echo Please VNC to ${VNCDEFPORT} to connect to this VM console
   socat TCP6-LISTEN:${VNCDEFPORT},reuseaddr TCP:localhost:$VNCPORT &
+fi
+
+if [ "${OP}" = "relay" ]; then
+  getvncdisplay
+  RELAYDEFPORT=$((2200 + ${VNCDISPLAY}))
+  get_ipv6_ll ${RELAYDEFINT}
+  IPV6LLADDR=$RET
+  getnetconns
+  RELAYINTF=`echo "$RET" | grep "${VMFULLNAME}e${RELAYDEFINT}" | awk '{ print $1; }'`
+  if [ "x${RELAYINTF}" = "x" ]; then
+    echo Could not find where the interface is bridged, will not relay
+  else
+    IPV6MGMTADDR=${IPV6LLADDR}%${RELAYINTF}
+    echo TCP port ${RELAYDEFPORT} one-shot relay to ${IPV6MGMTADDR} port ${TARGETRELAYPORT}
+    socat TCP6-LISTEN:${RELAYDEFPORT},reuseaddr TCP6:[$IPV6MGMTADDR]:${TARGETRELAYPORT} &
+  fi
 fi
 
 for disk in hda hdb hdc hde; do
