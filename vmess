@@ -275,6 +275,11 @@ mkvlan () {
   done
 }
 
+getnetconns () {
+  # collect the bridge configuration in a form <bridge> <member1> <member2> ... - thus, one VLAN per line
+  RET=`brctl show | awk -v "foo=$2" '{ if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; } }; if (NF==1 && ($1 ~ foo)) {intf=intf " " $1; }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }'`
+}
+
 
 
 VMNAME=$1
@@ -435,9 +440,8 @@ if [ "$VMNAME" = "net" ]; then
   echo "Network connections per-segment:" >&2
   CMD=$1
   if [ "$CMD" = "" -o "$CMD" = "status" ]; then
-
-    # collect the bridge configuration in a form <bridge> <member1> <member2> ... - thus, one VLAN per line
-    NETCONNS=`brctl show | awk -v "foo=$2" '{ if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; } }; if (NF==1 && ($1 ~ foo)) {intf=intf " " $1; }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }'`
+    getnetconns
+    NETCONNS="${RET}"
 
     # output the commands to recreate the bridges
     echo "$NETCONNS" | sed -e 's/^/vmess net vlan /g'
