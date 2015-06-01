@@ -1,0 +1,270 @@
+#!/bin/bash
+
+#
+# Copyright (c) 2015 Pierre Pfister, pierre -at- darou.fr.
+#
+# Simple namespace based virtual network management tool.
+# Designed for quick'n'dirty virtual network setup.
+# 
+
+NS_PREFIX=""
+NS_DEFAULT_NAME="ns"
+
+BR_PREFIX=""
+BR_DEFAULT_NAME="br"
+
+VETH_PREFIX="nwire-"
+
+CMD="$0"
+
+usage() {
+	cat << EOF
+Usage: nmess [ OPTIONS ] { COMMAND | help }
+OPTIONS := -c (Create netns and bridge when creating bridge and wire)
+           -l (Specify lab prefix)
+COMMAND := { add | del | addbr | delbr | wire | unwire | fe | status | exec | ns | br }
+
+nmess help
+	Display this text.
+
+nmess ns     <nsid>
+	Display ns name given the ns id (If it exists).
+	If -c is set, the netns is created.
+
+nmess br     <nsid> <brid>
+	Display the br name given the br id (If it exists).
+	If -c is set, the netns and bridge are created.
+
+nmess add    <nsid>
+	Add a namespace.
+	
+nmess del    <nsid>
+	Delete a namespace.
+
+nmess addbr  <nsid> <brid>
+	Add a bridge.
+	If -c is set, the netns is created.
+
+nmess delbr  <nsid> <brid>
+	Delete a bridge.
+
+nmess wire   <nsid-1> <brid-1> <nsid-2> <brid-2>
+	Create a connexion between two bridges.
+	If -c is set, netns and bridges are created.
+	A bridge cannot be wired to itself.
+
+nmess unwire <nsid-1> <brid-1> <nsid-2> <brid-2>
+	Remove a wire.
+
+nmess fe     command
+	Execute a command for each netns and bridge.
+
+nmess status
+	Print commands which would allow creating the current state.
+
+nmess exec   <nsid> command
+	Execute a command (as root) inside the given netns.
+EOF
+}
+
+echoerr() {
+	echo $@ 1>&2
+}
+
+CREATE=""
+
+while [ "$1" != "" -a "${1:0:1}" = "-" ]; do
+	case $1 in
+		"-c") CREATE="add"; shift;;
+		"-l") NS_PREFIX="$2";BR_PREFIX="$2"; shift 2;;
+	esac
+done
+
+RET=""
+ns_format() {
+	[ "$1" = "" ] && echoerr "Empty namespace name." && exit 1
+	RET=${1#$NS_PREFIX}
+	[[ "$RET" =~ ^[0-9]+$ ]] && RET="${NS_PREFIX}${NS_DEFAULT_NAME}$RET" || RET="${NS_PREFIX}$RET"
+	return 0
+}
+
+ns_unformat() {
+	[ "$1" = "" ] && echoerr "Empty namespace name." && exit 1
+	RET=${1#$NS_PREFIX}
+	[[ "$RET" =~ ^${NS_DEFAULT_NAME}[0-9]+$ ]] && RET=`echo $RET | sed "s/^$NS_DEFAULT_NAME//"`
+	return 0
+}
+
+br_format() {
+	[ "$1" = "" ] && echoerr "Empty bridge name." && exit 1
+	RET=${1#$BR_PREFIX}
+	[[ "$RET" =~ ^[0-9]+$ ]] && RET="${BR_PREFIX}${BR_DEFAULT_NAME}$RET" || RET="${BR_PREFIX}$RET"
+	return 0
+}
+
+br_unformat() {
+	[ "$1" = "" ] && echoerr "Empty bridge name." && exit 1
+	RET=${1#$BR_PREFIX}
+	[[ "$RET" =~ ^${BR_DEFAULT_NAME}[0-9]+$ ]] && RET=`echo $RET | sed "s/^$BR_DEFAULT_NAME//"`
+	return 0
+}
+
+br_mac() {
+	HASH=`echo "$1====$2" | md5sum | cut -c 1-8`
+	RET="02:00:${HASH:0:2}:${HASH:2:2}:${HASH:4:2}:${HASH:6:2}"
+	return 0
+}
+
+br_setup() { # <ns> <br>
+	sudo ip netns exec $1 brctl addbr $2 &&
+	br_mac $1 $2 && 
+	sudo ip netns exec $1 ip link set dev $2 address $RET && 
+	sudo ip netns exec $1 ip link set dev $2 up
+}
+
+wire_format() {
+	HASH1=`echo "$1==$2====$3==$4" | md5sum | cut -c 1-6`
+	HASH2=`echo "$3==$4====$1==$2" | md5sum | cut -c 1-6`
+	SUM=$((0x$HASH1 + 0x$HASH2))
+	RET=`printf "${VETH_PREFIX}%x" $SUM`
+	return 0
+}
+
+get_nss() {
+	RET=`sudo ip netns show | grep "^${NS_PREFIX}"`
+	return 0
+}
+
+get_brs() {
+	RET=`sudo ip netns exec $1 brctl show | grep -v '^\s' | tail -n +2 | awk '{ print $1; }' | grep "^${BR_PREFIX}"`
+	return 0
+}
+
+NS1=""
+NS2=""
+get_ns() { # <namespace id> ["add"]
+	ns_format $1 && ns="$RET"
+	get_nss && find=`echo "$RET" | grep "^$ns\$"`
+	if [ "$find" = "" ]; then
+		[ "$2" != "add" ] && echoerr "Namespace $ns does not exist." && return 1
+		sudo ip netns add $ns && echo "Creating namespace $ns." || return $?
+	fi
+	[ "$NS1" = "" ] && NS1="$ns" || NS2="$ns"
+	return 0
+}
+
+BR1=""
+BR2=""
+get_br() { # <namespace name> <bridge id> ["add"]
+	ns=$1
+	br_format $2 && br=$RET
+	get_brs $ns && find=`echo "$RET" | grep "^$br\$"`
+	if [ "$find" = "" ]; then
+		[ "$3" != "add" ] && echoerr "Bridge $br does not exist in namespace $ns." && return 1
+		br_setup $ns $br && echo "Creating bridge $br in namespace $ns." || return $?
+	fi
+	[ "$BR1" = "" ] && BR1="$br" || BR2="$br"
+	return 0
+}
+
+command="$1"
+[ "$command" = "" ] && echoerr "No command" && usage && exit 1
+
+if [ "$command" = "add" ]; then
+	get_ns "$2" "add" 
+	exit $?
+elif [ "$command" = "del" ]; then
+	get_ns "$2" && 
+	sudo ip netns del $NS1 && echo "Destroying namespace $NS1"
+	exit $?
+elif [ "$command" = "addbr" ]; then
+	get_ns "$2" "$CREATE" && 
+	get_br "$NS1" "$3" "add"
+	exit $?
+elif [ "$command" = "delbr" ]; then
+	get_ns "$2" && 
+	get_br "$NS1" "$3" && 
+	sudo ip netns exec $NS1 ip link set $BR1 down && 
+	sudo ip netns exec $NS1 brctl delbr $BR1 && 
+	echo "Destroying bridge $BR1 from namespace $NS1"
+	exit $?
+elif [ "$command" = "wire" ]; then
+	get_ns "$2" "$CREATE" && 
+	get_br "$NS1" "$3" "$CREATE" && 
+	get_ns "$4" "$CREATE" && 
+	get_br "$NS2" "$5" "$CREATE" && 
+	( [ "$NS1" != "$NS2" -o "$BR1" != "$BR2" ] || ( echoerr "Cannot wire a bridge to itself." && exit 1 ) ) && 
+	wire_format $NS1 $BR1 $NS2 $BR2 && wire=$RET && 
+	sudo ip netns exec $NS1 ip link add "$wire-0" type veth peer name "$wire-1" || exit 1
+	( sudo ip netns exec $NS1 ip link set "$wire-1" netns $NS2 && 
+	sudo ip netns exec $NS1 brctl addif "$BR1" "$wire-0" && 
+	sudo ip netns exec $NS2 brctl addif "$BR2" "$wire-1" && 
+	echo "Wired $BR1@$NS1 to $BR2@$NS2"
+	) || ( sudo ip netns exec $NS1 ip link del "$wire-0" && exit 1 )
+	exit $?
+elif [ "$command" = "unwire" ]; then
+	get_ns "$2" && 
+	get_br "$NS1" "$3" && 
+	get_ns "$4" && 
+	get_br "$NS2" "$5" && 
+	wire_format $NS1 $BR1 $NS2 $BR2 && wire=$RET && 
+	sudo ip netns exec $NS1 ip link del "$wire-0" && echo "Removed wire from $BR1@$NS1 to $BR2@$NS2"
+	exit $?
+elif [ "$command" = "fe" ]; then
+	shift
+	get_nss && nss="$RET"
+	[ "$nss" != "" ] && for ns in $nss; do
+		echo "============= $ns ============="
+		sudo ip netns exec $ns $@
+	done
+elif [ "$command" = "status" ]; then
+	get_nss
+	nss="$RET"
+	[ "$nss" != "" ] && for ns in $nss; do
+		ns_unformat $ns && NS=$RET
+		echo "$0 add $NS"
+		get_brs $ns && brs=$RET
+		[ "$brs" != "" ] && for br in $brs; do
+			br_unformat $br && BR=$RET
+			echo "$0 addbr $NS $BR"
+		done
+	done
+	[ "$nss" != "" ] && for ns1 in $nss; do
+		ns_unformat $ns1 && NS1=$RET
+		get_brs $ns1 && brs1=$RET
+		[ "$brs1" != "" ] && for br1 in $brs1; do
+			br_unformat $br1 && BR1=$RET
+			for ns2 in $nss; do
+				ns_unformat $ns2 && NS2=$RET
+				get_brs $ns2 && brs2=$RET
+				[ "$brs2" != "" ] && for br2 in $brs2; do
+					br_unformat $br2 && BR2=$RET
+					wire_format $ns1 $br1 $ns2 $br2 && wire=$RET
+					find=`sudo ip netns exec $ns1 ip link | awk '{print $2;}' | grep "^$wire-0:\$"`
+					[ "$find" != "" ] && echo "$0 wire $NS1 $BR1 $NS2 $BR2"
+				done
+			done
+		done
+	done
+elif [ "$command" = "help" ]; then
+	usage
+elif [ "$command" = "exec" ]; then
+	get_ns $2 || exit $?
+	shift 2
+	sudo ip netns exec $NS1 $@
+	exit $?
+elif [ "$command" = "ns" ]; then
+	get_ns $2 || exit $?
+	echo $NS1
+elif [ "$command" = "br" ]; then
+	get_ns $2 &&
+	get_br $NS1 $3 || exit $?
+	echo $BR1
+else
+	echoerr "Unknown command '$command'."
+	usage
+	exit 1
+fi
+
+
+
