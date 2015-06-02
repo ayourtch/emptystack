@@ -7,10 +7,10 @@
 # Designed for quick'n'dirty virtual network setup.
 # 
 
-NS_PREFIX=""
+NS_PREFIX="$NMESS_LAB"
 NS_DEFAULT_NAME="ns"
 
-BR_PREFIX=""
+BR_PREFIX="$NMESS_LAB"
 BR_DEFAULT_NAME="br"
 
 VETH_PREFIX="nwire-"
@@ -116,9 +116,11 @@ br_mac() {
 }
 
 br_setup() { # <ns> <br>
-	sudo ip netns exec $1 brctl addbr $2 &&
-	br_mac $1 $2 && 
-	sudo ip netns exec $1 ip link set dev $2 address $RET && 
+	sudo ip netns exec $1 ip link add $2 type bridge &&
+	#sudo ip netns exec $1 brctl addbr $2 &&
+	#br_mac $1 $2 && 
+	#sudo ip netns exec $1 ip link set dev $2 address $RET && 
+	# Adding the mac address creates a bug with no-carrier
 	sudo ip netns exec $1 ip link set dev $2 up
 }
 
@@ -147,7 +149,7 @@ get_ns() { # <namespace id> ["add"]
 	get_nss && find=`echo "$RET" | grep "^$ns\$"`
 	if [ "$find" = "" ]; then
 		[ "$2" != "add" ] && echoerr "Namespace $ns does not exist." && return 1
-		sudo ip netns add $ns && echo "Creating namespace $ns." || return $?
+		sudo ip netns add $ns && sudo ip netns exec $ns ip link set dev lo up && echo "Creating namespace $ns." || return $?
 	fi
 	[ "$NS1" = "" ] && NS1="$ns" || NS2="$ns"
 	return 0
@@ -199,6 +201,8 @@ elif [ "$command" = "wire" ]; then
 	( sudo ip netns exec $NS1 ip link set "$wire-1" netns $NS2 && 
 	sudo ip netns exec $NS1 brctl addif "$BR1" "$wire-0" && 
 	sudo ip netns exec $NS2 brctl addif "$BR2" "$wire-1" && 
+	sudo ip netns exec $NS1 ip link set "$wire-0" up && 
+	sudo ip netns exec $NS2 ip link set "$wire-1" up && 
 	echo "Wired $BR1@$NS1 to $BR2@$NS2"
 	) || ( sudo ip netns exec $NS1 ip link del "$wire-0" && exit 1 )
 	exit $?
