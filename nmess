@@ -169,6 +169,18 @@ get_br() { # <namespace name> <bridge id> ["add"]
 	return 0
 }
 
+swap_maybe() {
+	if [ "$NS2======$BR2" '<' "$NS1======$BR2" ]; then
+		SWITCH=$NS2
+		NS2=$NS1
+		NS1=$SWITCH
+		SWITCH=$BR2
+		BR2=$BR1
+		BR1=$SWITCH
+	fi
+	return 0
+}
+
 command="$1"
 [ "$command" = "" ] && echoerr "No command" && usage && exit 1
 
@@ -196,6 +208,7 @@ elif [ "$command" = "wire" ]; then
 	get_ns "$4" "$CREATE" && 
 	get_br "$NS2" "$5" "$CREATE" && 
 	( [ "$NS1" != "$NS2" -o "$BR1" != "$BR2" ] || ( echoerr "Cannot wire a bridge to itself." && exit 1 ) ) && 
+	swap_maybe && 
 	wire_format $NS1 $BR1 $NS2 $BR2 && wire=$RET && 
 	sudo ip netns exec $NS1 ip link add "$wire-0" type veth peer name "$wire-1" || exit 1
 	( sudo ip netns exec $NS1 ip link set "$wire-1" netns $NS2 && 
@@ -213,6 +226,7 @@ elif [ "$command" = "unwire" ]; then
 	get_br "$NS1" "$3" && 
 	get_ns "$4" && 
 	get_br "$NS2" "$5" && 
+	swap_maybe && 
 	wire_format $NS1 $BR1 $NS2 $BR2 && wire=$RET && 
 	sudo ip netns exec $NS1 ip link del "$wire-0" && echo "Removed wire from $BR1@$NS1 to $BR2@$NS2"
 	exit $?
