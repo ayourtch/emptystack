@@ -201,6 +201,8 @@ elif [ "$command" = "wire" ]; then
 	( sudo ip netns exec $NS1 ip link set "$wire-1" netns $NS2 && 
 	sudo ip netns exec $NS1 brctl addif "$BR1" "$wire-0" && 
 	sudo ip netns exec $NS2 brctl addif "$BR2" "$wire-1" && 
+	sudo ip netns exec $NS1 ip link set "$wire-0" promisc on && 
+	sudo ip netns exec $NS2 ip link set "$wire-1" promisc on && 
 	sudo ip netns exec $NS1 ip link set "$wire-0" up && 
 	sudo ip netns exec $NS2 ip link set "$wire-1" up && 
 	echo "Wired $BR1@$NS1 to $BR2@$NS2"
