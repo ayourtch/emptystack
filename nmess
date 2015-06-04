@@ -267,6 +267,13 @@ elif [ "$command" = "br" ]; then
 	get_ns $2 &&
 	get_br $NS1 $3 || exit $?
 	echo $BR1
+elif [ "$command" = "nslist" ]; then
+	get_nss
+	echo "$RET"
+elif [ "$command" = "brlist" ]; then
+	get_ns $2 || exit $?
+	get_brs "$NS1"
+	echo "$RET"
 else
 	echoerr "Unknown command '$command'."
 	usage
