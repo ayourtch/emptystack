@@ -257,7 +257,8 @@ elif [ "$command" = "help" ]; then
 elif [ "$command" = "exec" ]; then
 	get_ns $2 || exit $?
 	shift 2
-	sudo ip netns exec $NS1 $@
+	echo "$@" | sudo ip netns exec $NS1 bash -s
+	#sudo ip netns exec $NS1 $@
 	exit $?
 elif [ "$command" = "ns" ]; then
 	get_ns $2 || exit $?
