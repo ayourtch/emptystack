@@ -255,10 +255,12 @@ elif [ "$command" = "status" ]; then
 			echo "$0 addbr $NS $BR"
 		done
 	done
+	
 	[ "$nss" != "" ] && for ns1 in $nss; do
 		ns_unformat $ns1 && NS1=$RET
 		get_brs $ns1 && brs1=$RET
-		[ "$brs1" != "" ] && for br1 in $brs1; do
+		links=`sudo ip netns exec $ns1 ip link | grep "$VETH_PREFIX" | grep "0:"`
+		[ "$brs1" != "" -a "$links" != "" ] && for br1 in $brs1; do
 			br_unformat $br1 && BR1=$RET
 			for ns2 in $nss; do
 				ns_unformat $ns2 && NS2=$RET
@@ -266,7 +268,7 @@ elif [ "$command" = "status" ]; then
 				[ "$brs2" != "" ] && for br2 in $brs2; do
 					br_unformat $br2 && BR2=$RET
 					wire_format $ns1 $br1 $ns2 $br2 && wire=$RET
-					find=`sudo ip netns exec $ns1 ip link | awk '{print $2;}' | grep "^$wire-0:\$"`
+					find=`echo "$links" | awk '{print $2;}' | grep "^$wire-0:\$"`
 					[ "$find" != "" ] && echo "$0 wire $NS1 $BR1 $NS2 $BR2"
 				done
 			done
