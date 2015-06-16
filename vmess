@@ -529,6 +529,15 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
     vnc)
       OP="vnc"
     ;;
+    serial)
+      if [ "$1" = "" ]; then
+        echo Missing argument - which serial port on the target to relay ?
+        exit
+      fi
+      TARGETRELAYPORT=$1
+      shift
+      OP="serial"
+    ;;
     relay)
       if [ "$1" = "" ]; then
         echo Missing argument - which tcp port on the target to relay ?
@@ -775,12 +784,17 @@ done
 CMD="kvm ${CMD}"
 
 getvncdisplay
-CMD="${CMD} -vnc 127.0.0.1:${VNCDISPLAY}"
+CMD="${CMD} -vnc 127.0.0.1:${VNCDISPLAY} -monitor tcp:127.0.2.0:${VNCPORT},server,nowait -serial telnet:127.0.2.1:${VNCPORT},server,nowait "
 PIDCMD="vnc 127.0.0.1:${VNCDISPLAY}"
 
 if [ "${OP}" = "vnc" ]; then
   echo Please VNC to ${VNCDEFPORT} to connect to this VM console
   socat TCP6-LISTEN:${VNCDEFPORT},reuseaddr TCP:localhost:$VNCPORT &
+fi
+
+if [ "${OP}" = "serial" ]; then
+  echo Please telnet to ${VNCDEFPORT} to connect to this VM serial ${SER_PORT}
+  socat TCP6-LISTEN:${VNCDEFPORT},reuseaddr TCP:127.0.2.${TARGETRELAYPORT}:$VNCPORT &
 fi
 
 if [ "${OP}" = "relay" ]; then
