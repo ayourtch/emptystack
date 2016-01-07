@@ -38,6 +38,7 @@ SOCAT=`which socat`
 TUNCTL=`which tunctl`
 KVM=`which kvm`
 KPARTX=`which kpartx`
+VMESS="$0"
 
 if [ "$1" = "install" ]; then
   INSTALL=""
@@ -273,7 +274,7 @@ mkvlan () {
     prepareintf $i
     sudo brctl addif ${BRNAME} $i
     if [ "1" = "$?" ]; then
-      OLDBR=`vmess net | grep $i | awk '{ print $4; }'`
+      OLDBR=`$VMESS net | grep $i | awk '{ print $4; }'`
       echo "Need to remove from old bridge: $OLDBR"
       sudo brctl delif ${OLDBR} $i
       sudo brctl addif ${BRNAME} $i
@@ -303,8 +304,8 @@ fi
 
 if [ "$VMNAME" = "status" ]; then
   ifconfig -a  | grep 'Link encap:' | cut -d' ' -f1 | sed -e 's/^/vmess net add /'
-  vmess net status 2>/dev/null
-  VNCNUMS=`vmess | grep vnc | perl -ne 'if(/-vnc :([0-9]+) /) { print ":$1:"; }'`
+  $VMESS net status 2>/dev/null
+  VNCNUMS=`$VMESS | grep vnc | perl -ne 'if(/-vnc :([0-9]+) /) { print ":$1:"; }'`
   VMNAMES=`ls -ald ${VMDIR}/*[0-9] | sed "s#${VMDIR}/##g" | rev | cut -d' '  -f1 | rev`
   for aVM in $VMNAMES; do
     VMNAME=$aVM
@@ -450,7 +451,7 @@ if [ "$VMNAME" = "net" ]; then
     NETCONNS="${RET}"
 
     # output the commands to recreate the bridges
-    echo "$NETCONNS" | sed -e 's/^/vmess net vlan /g'
+    echo "$NETCONNS" | sed -e 's/^/$VMESS net vlan /g'
 
     if [ "$CMD" = "status" ]; then
       # find the bridges which have IPv6 enabled, and generate commands to enable it
@@ -516,7 +517,7 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
         exit
       fi
       if [ $VMNUMINTF -gt 0 ]; then 
-	vmess $VMFULLNAME ifdel
+	    $VMESS $VMFULLNAME ifdel
       fi
       VMNUMINTF=$1
       shift
@@ -764,7 +765,7 @@ do
   fi
   if [ "${OP}" = "connect" ]; then
     if [ "$i" = "$BRIDGEIFNUM" ]; then
-      BRDELIF=`vmess net brctl | grep ${IFNAME} | sed -e 's/addif/delif/'`
+      BRDELIF=`$VMESS net brctl | grep ${IFNAME} | sed -e 's/addif/delif/'`
       echo $BRDELIF
       `$BRDELIF`
       echo mkvlan ${BRIDGEVLAN} ${IFNAME}
