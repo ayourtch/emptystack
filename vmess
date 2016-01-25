@@ -677,7 +677,8 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
         for dir in `ls -d ${VMDIRNAME}/${VMFULLNAME}-fslo-* 2> /dev/null`; do
           tag=`echo $dir | sed "s,.*/${VMFULLNAME}-fslo-\(.*$\),\1,"`
           [ ! -e "${VMDIRNAME}/${VMFULLNAME}-fs-$tag" ] && mkdir ${VMDIRNAME}/${VMFULLNAME}-fs-$tag
-          sudo mount -t overlayfs -o lowerdir=${VMDIRNAME}/${VMFULLNAME}-fslo-$tag,upperdir=${VMDIRNAME}/${VMFULLNAME}-fsup-$tag overlayfs ${VMDIRNAME}/${VMFULLNAME}-fs-$tag
+          [ ! -e "${VMDIRNAME}/${VMFULLNAME}-work-$tag" ] && mkdir ${VMDIRNAME}/${VMFULLNAME}-work-$tag
+          sudo mount -t overlayfs -o lowerdir=${VMDIRNAME}/${VMFULLNAME}-fslo-$tag,workdir=${VMDIRNAME}/${VMFULLNAME}-work-$tag,upperdir=${VMDIRNAME}/${VMFULLNAME}-fsup-$tag overlayfs ${VMDIRNAME}/${VMFULLNAME}-fs-$tag
         done
         shift 1
       elif [ "$1" = "umount" ]; then
