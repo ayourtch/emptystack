@@ -451,7 +451,7 @@ if [ "$VMNAME" = "net" ]; then
     NETCONNS="${RET}"
 
     # output the commands to recreate the bridges
-    echo "$NETCONNS" | sed -e "s/^/$VMESS net vlan /g"
+    echo "$NETCONNS" | sed -e "s#^#$VMESS net vlan #g"
 
     if [ "$CMD" = "status" ]; then
       # find the bridges which have IPv6 enabled, and generate commands to enable it
