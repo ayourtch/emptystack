@@ -816,13 +816,28 @@ if [ "${OP}" = "relay" ]; then
   fi
 fi
 
-for disk in hda hdb hdc hde; do
+for disk in hda hdb hdc hdd; do
   if [ -e ${VMDIRNAME}/${VMFULLNAME}-$disk.img.gz ]; then
     echo "Warning - ${VMFULLNAME}-$disk.img.gz looks like a compressed file."
     echo "You should run 'vmess ${VMFULLNAME} uncompress'"
   fi
+  case $disk in
+	hda)
+		HDINDEX=0
+	;;
+	hdb)
+		HDINDEX=1
+	;;
+	hdc)
+		HDINDEX=2
+	;;
+	hdd)
+		HDINDEX=3
+	;;
+  esac
   if [ -e ${VMDIRNAME}/${VMFULLNAME}-$disk.img ]; then
-    CMD="$CMD -$disk ${VMDIRNAME}/${VMFULLNAME}-$disk.img"
+    # CMD="$CMD -$disk ${VMDIRNAME}/${VMFULLNAME}-$disk.img"
+    CMD="$CMD -drive file=${VMDIRNAME}/${VMFULLNAME}-$disk.img,index=$HDINDEX,media=disk,format=raw"
   fi
 done
 
