@@ -591,7 +591,7 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
       [ "$1" = "" ] && echo Missing argument && exit 1
       if [ "$1" = "mount" ]; then
         #First try to mount it directly
-        mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d" && mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part0"
+        mkdir -p "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part0"
         sudo mount -o loop "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part0" 2>/dev/null
 	if [ "$?" != "0" ]; then
           rmdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part0" && rmdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d"
@@ -600,11 +600,18 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
           [ "$?" != "0" ] && echo kpartx error && exit 1
           devnum="0"
           mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d"
-          for dev in `sudo $KPARTX -av "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" | awk '{ print $3 }'`; do
+          PARTS=`sudo $KPARTX -av "${VMDIRNAME}/${VMFULLNAME}-$ARG.img" | awk '{ print $3 }'`
+          # fun fact: kpartx mappings are not visible immediately upon its return. Who would have thought...
+          for dev in $PARTS; do
+	    # wait until the device is visible
+	    while [ ! -e /dev/mapper/$dev ]; do perl -e "select(undef,undef,undef,0.1);"; done
+	  done
+          for dev in $PARTS; do
             mkdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
-            sudo mount "/dev/mapper/$dev" "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum" >/dev/null 2>&1
+            sudo mount "/dev/mapper/$dev" "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
             if [ "$?" != "0" ]; then
               rmdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
+              echo rmdir "${VMDIRNAME}/${VMFULLNAME}-$ARG.d/part$devnum"
             fi
             devnum=`expr $devnum + 1`
           done
