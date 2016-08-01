@@ -88,6 +88,9 @@ if [ "$VMESS_VMDIR" = "" ]; then
 else
 	VMDIR=$VMESS_VMDIR
 fi
+# the list of regexes to match the interfaces we are not dealing with
+VMESS_NET_IGNORE_FILE=$VMDIR/vmess-net-ignore
+
 LOCKDIR="/home/${USER}/.vmess.lock"
 if [ ! -d "$VMDIR" ]; then
 	echo "Could not find VMDIR directory $VMDIR."
@@ -284,7 +287,13 @@ mkvlan () {
 
 getnetconns () {
   # collect the bridge configuration in a form <bridge> <member1> <member2> ... - thus, one VLAN per line
-  RET=`brctl show | awk -v "foo=$2" '{ if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; } }; if (NF==1 && ($1 ~ foo)) {intf=intf " " $1; }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }'`
+  if [ -f "$VMESS_NET_IGNORE_FILE" ]; then
+    # Take the ignored interfaces into account and exclude them from the list.
+    RET=`brctl show | awk -v "foo=$2" 'BEGIN { while (getline < "'"$VMESS_NET_IGNORE_FILE"'") { ignArr[$0]=$0; } } function ign(c) { for (i in ignArr) if ( match(c,i) ) return i; return ""; }  { if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; if(ign(intf)) { intf=""; } } }; if (NF==1 && ($1 ~ foo)) {intfadd=$1 ; if(ign(intfadd)) { intfadd=""; } else { intf=intf " " intfadd; } }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }'`
+  else
+    # Legacy code.
+    RET=`brctl show | awk -v "foo=$2" '{ if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; } }; if (NF==1 && ($1 ~ foo)) {intf=intf " " $1; }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }'`
+  fi
 }
 
 
@@ -303,7 +312,15 @@ if [ "$VMNAME" = "" ]; then
 fi
 
 if [ "$VMNAME" = "status" ]; then
-  ifconfig -a  | grep 'Link encap:' | cut -d' ' -f1 | egrep -v 'veth[0-9A-Z]{5}' | sed -e 's/^/vmess net add /'
+  if [ -f "$VMESS_NET_IGNORE_FILE" ]; then
+    VMESS_NET_IGNORE="egrep -v -f $VMESS_NET_IGNORE_FILE"
+    cat $VMESS_NET_IGNORE_FILE | sed -e 's/^/vmess net ignore /'
+  else
+    VMESS_NET_IGNORE="cat"
+  fi
+
+  ifconfig -a  | grep 'Link encap:' | cut -d' ' -f1 >/tmp/vmess.out
+  ifconfig -a  | grep 'Link encap:' | cut -d' ' -f1 | $VMESS_NET_IGNORE | sed -e 's/^/vmess net add /'
   $VMESS net status 2>/dev/null
   VNCNUMS=`$VMESS | grep vnc | perl -ne 'if(/-vnc :([0-9]+) /) { print ":$1:"; }'`
   VMNAMES=`ls -ald ${VMDIR}/*[0-9] | sed "s#${VMDIR}/##g" | rev | cut -d' '  -f1 | rev`
@@ -469,6 +486,17 @@ if [ "$VMNAME" = "net" ]; then
   fi
   if [ "$CMD" = "add" ]; then
     prepareintf $1
+  fi
+  if [ "$CMD" = "ignore" ]; then
+    if [ -f "$VMESS_NET_IGNORE_FILE" ]; then
+      fgrep -x $1 "$VMESS_NET_IGNORE_FILE" >/dev/null
+      RET=$?
+      if [ "0" = "$RET" ]; then
+        # echo $1 already ignored >&2
+        exit
+      fi
+    fi
+    echo $1 >>$VMESS_NET_IGNORE_FILE
   fi
 
   if [ "$CMD" = "brctl" ]; then
