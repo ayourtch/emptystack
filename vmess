@@ -303,7 +303,7 @@ if [ "$VMNAME" = "" ]; then
 fi
 
 if [ "$VMNAME" = "status" ]; then
-  ifconfig -a  | grep 'Link encap:' | cut -d' ' -f1 | sed -e 's/^/vmess net add /'
+  ifconfig -a  | grep 'Link encap:' | cut -d' ' -f1 | egrep -v 'veth[0-9A-Z]{5}' | sed -e 's/^/vmess net add /'
   $VMESS net status 2>/dev/null
   VNCNUMS=`$VMESS | grep vnc | perl -ne 'if(/-vnc :([0-9]+) /) { print ":$1:"; }'`
   VMNAMES=`ls -ald ${VMDIR}/*[0-9] | sed "s#${VMDIR}/##g" | rev | cut -d' '  -f1 | rev`
