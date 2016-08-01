@@ -822,7 +822,7 @@ do
     NIC_MODEL="e1000"
   fi
   
-  IFCFG=" -device ${NIC_MODEL},netdev=net$i,mac=${MACADDR} -netdev tap,id=net$i,ifname=${IFNAME},script=/bin/true"
+  IFCFG=" -device ${NIC_MODEL},netdev=net$i,mac=${MACADDR} -netdev tap,id=net$i,ifname=${IFNAME},script=/bin/true$NIC_EXARGS"
   CMD="${CMD}${IFCFG}"
 done
 
