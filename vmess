@@ -285,17 +285,21 @@ mkvlan () {
   done
 }
 
+
 getnetconns () {
+  # collect the bridge configuration in a form <bridge> <member1> <member2> ... - thus, one VLAN per line
+  RET=`brctl show | awk -v "foo=$2" '{ if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; } }; if (NF==1 && ($1 ~ foo)) {intf=intf " " $1; }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }'`
+}
+
+getnetconns_filtered () {
   # collect the bridge configuration in a form <bridge> <member1> <member2> ... - thus, one VLAN per line
   if [ -f "$VMESS_NET_IGNORE_FILE" ]; then
     # Take the ignored interfaces into account and exclude them from the list.
     RET=`brctl show | awk -v "foo=$2" 'BEGIN { while (getline < "'"$VMESS_NET_IGNORE_FILE"'") { ignArr[$0]=$0; } } function ign(c) { for (i in ignArr) if ( match(c,i) ) return i; return ""; }  { if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; if(ign(intf)) { intf=""; } } }; if (NF==1 && ($1 ~ foo)) {intfadd=$1 ; if(ign(intfadd)) { intfadd=""; } else { intf=intf " " intfadd; } }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }'`
   else
-    # Legacy code.
-    RET=`brctl show | awk -v "foo=$2" '{ if (NF==4) { if ((br!="") && (intf !="")) { print br,intf; }; br=$1; intf=""; if($4 ~ foo) { intf=$4; } }; if (NF==1 && ($1 ~ foo)) {intf=intf " " $1; }; }  END { if ((br!="") && (intf !="")) { print br,intf; } }'`
+    getnetconns
   fi
 }
-
 
 
 VMNAME=$1
@@ -464,11 +468,15 @@ if [ "$VMNAME" = "net" ]; then
   echo "Network connections per-segment:" >&2
   CMD=$1
   if [ "$CMD" = "" -o "$CMD" = "status" ]; then
-    getnetconns
+    if [ "x$2" = "xall" ]; then
+      getnetconns
+    else
+      getnetconns_filtered
+    fi
     NETCONNS="${RET}"
 
     # output the commands to recreate the bridges
-    echo "$NETCONNS" | sed -e "s#^#$VMESS net vlan #g"
+    echo "$NETCONNS" | sed -e "s#^#vmess net vlan #g"
 
     if [ "$CMD" = "status" ]; then
       # find the bridges which have IPv6 enabled, and generate commands to enable it
