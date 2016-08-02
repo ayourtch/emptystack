@@ -318,7 +318,7 @@ fi
 if [ "$VMNAME" = "status" ]; then
   if [ -f "$VMESS_NET_IGNORE_FILE" ]; then
     VMESS_NET_IGNORE="egrep -v -f $VMESS_NET_IGNORE_FILE"
-    cat $VMESS_NET_IGNORE_FILE | sed -e 's/^/vmess net ignore /'
+    # cat $VMESS_NET_IGNORE_FILE | sed -e 's/^/vmess net ignore /'
   else
     VMESS_NET_IGNORE="cat"
   fi
