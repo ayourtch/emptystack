@@ -737,6 +737,10 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
     ;;
     stop)
       OP="stop"
+      if [ "$1" = "force" ]; then
+        OP="force-stop"
+        shift 1
+      fi
     ;;
     ctrl-alt-delete)
       OP="ctrl-alt-delete"
@@ -956,6 +960,12 @@ if [ "$OP" = "start" ]; then
   sh -c "$CMD"
 fi
 if [ "$OP" = "stop" ]; then
+  if [ ! "$RUNPID" = "" ]; then
+    echo Powering off VM PID $RUNPID
+    echo system_powerdown | nc 127.0.2.0 $VNCPORT >/dev/null
+  fi
+fi
+if [ "$OP" = "force-stop" ]; then
   if [ ! "$RUNPID" = "" ]; then
     echo Stopping VM PID $RUNPID
     kill ${RUNPID}
