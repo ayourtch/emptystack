@@ -139,7 +139,7 @@ wire_format() {
 }
 
 get_nss() {
-	RET=`sudo ip netns show | grep "^${NS_PREFIX}"`
+	RET=`sudo ip netns show | awk '{ print $1; }' | grep "^${NS_PREFIX}"`
 	return 0
 }
 
