@@ -738,6 +738,9 @@ while [ \( ! -z "$1" \) -a \( "$PARSEARGS" = "1" \) ]; do
     stop)
       OP="stop"
     ;;
+    ctrl-alt-delete)
+      OP="ctrl-alt-delete"
+    ;;
     suspend)
       OP="suspend"
     ;;
@@ -956,6 +959,13 @@ if [ "$OP" = "stop" ]; then
   if [ ! "$RUNPID" = "" ]; then
     echo Stopping VM PID $RUNPID
     kill ${RUNPID}
+  fi
+fi
+if [ "$OP" = "ctrl-alt-delete" ]; then
+  if [ "$RUNPID" = "" ]; then
+    echo VM not running
+  else
+    echo sendkey ctrl-alt-delete | nc 127.0.2.0 $VNCPORT >/dev/null
   fi
 fi
 
