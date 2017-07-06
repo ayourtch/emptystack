@@ -525,7 +525,7 @@ if [ ! -d ${VMDIRNAME} ]; then
   fi
 fi
 
-VMNUMINTF=`ifconfig -a | grep HWaddr | grep "^${VMNAME}${VMINST}e[0-9]" | wc -l`
+VMNUMINTF=`ifconfig -a | egrep -e '^[^ ]' | grep "^${VMNAME}${VMINST}e[0-9]" | wc -l`
 
 
 CMD=""
